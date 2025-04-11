@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35913.81
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LLM.Interact.UI", "LLM.Interact.UI\LLM.Interact.UI.csproj", "{D125E173-8FAE-4A48-AB03-6E8171784C78}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LLM.Interact.Core", "LLM.Interact.Core\LLM.Interact.Core.csproj", "{DB03503D-91DE-4616-B2E3-9D7D43925C6F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D125E173-8FAE-4A48-AB03-6E8171784C78}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D125E173-8FAE-4A48-AB03-6E8171784C78}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D125E173-8FAE-4A48-AB03-6E8171784C78}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D125E173-8FAE-4A48-AB03-6E8171784C78}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB03503D-91DE-4616-B2E3-9D7D43925C6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB03503D-91DE-4616-B2E3-9D7D43925C6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB03503D-91DE-4616-B2E3-9D7D43925C6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB03503D-91DE-4616-B2E3-9D7D43925C6F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {78612535-A7BB-4DBB-B4A6-2976D235EEB1}
+	EndGlobalSection
+EndGlobal
