@@ -23,7 +23,8 @@ namespace LLM.Interact.UI
             if (chatHelper == null)
             {
                 AIConfig config = new AIConfig();
-                config.Url = "http://192.168.100.198:11434";
+                config.Url = ai_url.Text ?? config.Url;
+                config.ModelName = model_name.Text ?? config.ModelName;
                 chatHelper = new ChatHelper(config);
             }
         }
