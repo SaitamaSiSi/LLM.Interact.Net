@@ -38,6 +38,10 @@ namespace LLM.Interact.UI
             }
         }
 
+        private void DisClick(object? sender, RoutedEventArgs e)
+        {
+        }
+
         private void SendClick(object? sender, RoutedEventArgs e)
         {
             if (chatHelper != null)

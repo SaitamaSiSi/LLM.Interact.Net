@@ -67,6 +67,13 @@
 					VerticalAlignment="Center"
 					Content="连接"
 					Margin="10 0 0 0"/>
+				<Button
+					x:Name="ai_dis"
+					IsVisible="FALSE"
+					Click="DisClick"
+					VerticalAlignment="Center"
+					Content="断开"
+					Margin="10 0 0 0"/>
 			</DockPanel>
 		</Border>
 		<Border Grid.Row="1" Background="LightGray">
