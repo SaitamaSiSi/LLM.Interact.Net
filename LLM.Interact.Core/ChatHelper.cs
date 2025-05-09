@@ -32,6 +32,25 @@ namespace LLM.Interact.Core
             _plugins = _kernel.Plugins.GetFunctionsMetadata();
         }
 
+        public async IAsyncEnumerable<string> AskStreamingQuestionAsync(string question)
+        {
+            //定义一个对话历史
+            ChatHistory history = new ChatHistory();
+            //创建一个对话服务实例
+            var chatCompletionService = _kernel.GetRequiredService<IChatCompletionService>();
+            //添加用户的提问
+            history.AddUserMessage(question);
+
+            // 流式执行kernel
+            await foreach (var result in chatCompletionService.GetStreamingChatMessageContentsAsync(
+                history,
+                executionSettings: null,
+                kernel: _kernel))
+            {
+                yield return result.Content!;
+            }
+        }
+
         public async Task<string> AskQuestionAsync(string question)
         {
             // Console.WriteLine($"User> \n{question}");
@@ -59,8 +78,18 @@ namespace LLM.Interact.Core
                 executionSettings: null,
                 kernel: _kernel);
             //打印回调内容
-            // Console.WriteLine($"Assistant> \n{result}");
+            //Console.WriteLine($"Assistant> \n{result}");
             return result.Content!;
+
+            // 流式执行kernel
+            //await foreach (var result in chatCompletionService.GetStreamingChatMessageContentsAsync(
+            //    history,
+            //    executionSettings: null,
+            //    kernel: _kernel))
+            //{
+            //    var test = result.Content;
+            //}
+            //return "ceshi";
 
             // 非流式调用
             //var result = await chat.GetChatMessageContentsAsync(history);

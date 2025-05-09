@@ -11,6 +11,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Net.Http.Json;
+using System.IO;
+using System.Runtime.CompilerServices;
+using Newtonsoft.Json;
 
 namespace LLM.Interact.Core.Services
 {
@@ -127,6 +130,7 @@ namespace LLM.Interact.Core.Services
         private class OllamaResponse
         {
             public Message? Message { get; set; }
+            public bool Done { get; set; }
         }
 
         private class Message
@@ -233,9 +237,55 @@ namespace LLM.Interact.Core.Services
             return sb.ToString();
         }
 
-        public IAsyncEnumerable<StreamingChatMessageContent> GetStreamingChatMessageContentsAsync(ChatHistory chatHistory, PromptExecutionSettings? executionSettings = null, Kernel? kernel = null, CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<StreamingChatMessageContent> GetStreamingChatMessageContentsAsync(ChatHistory chatHistory, PromptExecutionSettings? executionSettings = null, Kernel? kernel = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            var prompt = HistoryToText(chatHistory);
+
+            // 构建Ollama API请求
+            var requestBody = new
+            {
+                model = _modelName,
+                messages = new[]
+                {
+                    new
+                    {
+                        role = "user",
+                        content = prompt
+                    }
+                },
+                stream = true
+            };
+
+            var response = await _httpClient.PostAsJsonAsync(
+                "api/chat",
+                requestBody,
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            var completeResponse = new StringBuilder();
+
+            while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+            {
+                Thread.Sleep(1);
+                var line = await reader.ReadLineAsync();
+                if (string.IsNullOrEmpty(line)) continue;
+
+                var chunk = JsonConvert.DeserializeObject<OllamaResponse>(line);
+                if (chunk == null) continue;
+                if (chunk.Done) break;
+                else completeResponse.Append(chunk.Message?.Content.ToString());
+                string msg = chunk.Message?.Content ?? "";
+                yield return new StreamingChatMessageContent(
+                    AuthorRole.Assistant,
+                    content: msg);
+            }
+
+            //var finalResponse = completeResponse.ToString();
+            //yield return new StreamingChatMessageContent(
+            //        AuthorRole.Assistant,
+            //        content: finalResponse);
         }
     }
 
