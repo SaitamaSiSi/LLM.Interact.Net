@@ -137,7 +137,7 @@
 							Height="20"
 							TabIndex="0"
 							Watermark="给 AI 发送消息"
-							Text="为什么天空是蓝色的?" />
+							Text="我想知道重庆今天白天的天气情况" />
 						<Button
 							x:Name="ai_send"
 							Click="SendClick"

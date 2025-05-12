@@ -1,11 +1,11 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using LLM.Interact.Core;
+using LLM.Interact.Core.Core;
 using LLM.Interact.Core.Models;
 using LLM.Interact.UI.DTO;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -15,7 +15,10 @@ namespace LLM.Interact.UI
 {
     public partial class MainWindow : Window
     {
-        private ChatHelper? chatHelper;
+        private readonly long CurrentChatId;
+        private readonly ChatManager _chatManager = new();
+        private ConcurrentDictionary<long, AIConfig> ChatConfigs = new();
+
         public ObservableCollection<MessageModel> Messages { get; } = [];
 
         public MainWindow()
@@ -33,21 +36,26 @@ namespace LLM.Interact.UI
 
             // 保存参数（务必调用，否则参数设置不生效）：
             YitIdHelper.SetIdGenerator(options);
+
+            CurrentChatId = YitIdHelper.NextId();
         }
 
         private void StartClick(object? sender, RoutedEventArgs e)
         {
-            if (chatHelper == null)
+            if (!ChatConfigs.ContainsKey(CurrentChatId))
             {
-                AIConfig config = new AIConfig();
+                AIConfig config = new();
+                config.Id = CurrentChatId;
+                config.AiType = AiType.Ollama;
                 config.Url = ai_url.Text ?? config.Url;
                 config.ModelName = model_name.Text ?? config.ModelName;
-                chatHelper = new ChatHelper(config);
-
-                ai_url.IsEnabled = false;
-                model_name.IsEnabled = false;
-                ai_con.IsEnabled = false;
+                _chatManager.AddService(config);
+                ChatConfigs.TryAdd(CurrentChatId, config);
             }
+
+            ai_url.IsEnabled = false;
+            model_name.IsEnabled = false;
+            ai_con.IsEnabled = false;
         }
 
         private void DisClick(object? sender, RoutedEventArgs e)
@@ -56,7 +64,7 @@ namespace LLM.Interact.UI
 
         private void SendClick(object? sender, RoutedEventArgs e)
         {
-            if (chatHelper != null)
+            if (_chatManager.IsContainsService(CurrentChatId))
             {
                 // 我想知道重庆今天白天的天气情况
                 // What is the price of the soup special?
@@ -67,7 +75,7 @@ namespace LLM.Interact.UI
                     _ = Task.Factory.StartNew(async (obj) =>
                     {
                         Tuple<string>? tuple = (Tuple<string>?)obj;
-                        void action() { ai_send.IsEnabled = true; }
+                        void action() { ai_send.IsEnabled = true; ai_communication.ScrollIntoView(Messages.Last()); }
                         if (tuple != null)
                         {
                             void action2()
@@ -78,10 +86,10 @@ namespace LLM.Interact.UI
                             }
                             AddMessage(tuple.Item1, true, action2);
                             // 带插件、非流式
-                            // string ret = await chatHelper.AskQuestionAsync(tuple.Item1);
+                            // string ret = await chatHelper.AskQuestionAsync(CurrentChatId, tuple.Item1);
                             // SendTipMsg(ret, action, 1);
                             // 不带插件、流式
-                            await foreach (string ret in chatHelper.AskStreamingQuestionAsync(tuple.Item1))
+                            await foreach (string ret in _chatManager.AskStreamingQuestionAsync(CurrentChatId, tuple.Item1))
                             {
                                 SendTipMsg(ret, null, 2);
                             }

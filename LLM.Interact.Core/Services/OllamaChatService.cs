@@ -14,6 +14,7 @@ using System.Net.Http.Json;
 using System.IO;
 using System.Runtime.CompilerServices;
 using Newtonsoft.Json;
+using Microsoft.Extensions.AI;
 
 namespace LLM.Interact.Core.Services
 {
@@ -239,6 +240,7 @@ namespace LLM.Interact.Core.Services
 
         public async IAsyncEnumerable<StreamingChatMessageContent> GetStreamingChatMessageContentsAsync(ChatHistory chatHistory, PromptExecutionSettings? executionSettings = null, Kernel? kernel = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            GetDicSearchResult(kernel!);
             var prompt = HistoryToText(chatHistory);
 
             // 构建Ollama API请求
@@ -282,10 +284,36 @@ namespace LLM.Interact.Core.Services
                     content: msg);
             }
 
-            //var finalResponse = completeResponse.ToString();
-            //yield return new StreamingChatMessageContent(
-            //        AuthorRole.Assistant,
-            //        content: finalResponse);
+            var finalResponse = completeResponse.ToString();
+            JToken? jToken = null;
+            try
+            {
+                jToken = JToken.Parse(finalResponse);
+                jToken = ConvertStringToJson(jToken);
+
+            }
+            catch
+            {
+
+            }
+            if (jToken != null)
+            {
+                var searchs = DicSearchResult.Values.ToList();
+                if (TryFindValues(jToken, ref searchs))
+                {
+                    var firstFunc = searchs.Where(x => x.SearchFunctionNameSucc).First();
+                    var funcCallResult = await firstFunc.KernelFunction.InvokeAsync(kernel!, firstFunc.FunctionParams);
+                    chatHistory.AddMessage(AuthorRole.Assistant, finalResponse);
+                    chatHistory.AddMessage(AuthorRole.Tool, funcCallResult.ToString());
+                    await foreach (var result in GetStreamingChatMessageContentsAsync(chatHistory, kernel: kernel))
+                    {
+                        yield return new StreamingChatMessageContent(
+                    AuthorRole.Assistant,
+                    result.Content!);
+                    }
+                }
+            }
+            chatHistory.AddMessage(AuthorRole.Assistant, finalResponse);
         }
     }
 
