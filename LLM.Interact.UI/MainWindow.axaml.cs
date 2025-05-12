@@ -6,6 +6,7 @@ using LLM.Interact.Core.Models;
 using LLM.Interact.UI.DTO;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -15,9 +16,9 @@ namespace LLM.Interact.UI
 {
     public partial class MainWindow : Window
     {
-        private readonly long CurrentChatId;
         private readonly ChatManager _chatManager = new();
-        private ConcurrentDictionary<long, AIConfig> ChatConfigs = new();
+        private AiType CurrentChatType = AiType.Ollama;
+        private ConcurrentDictionary<AiType, AIConfig> ChatConfigs = new();
 
         public ObservableCollection<MessageModel> Messages { get; } = [];
 
@@ -25,6 +26,8 @@ namespace LLM.Interact.UI
         {
             InitializeComponent();
 
+            ai_type.SelectedIndex = 0;
+            ai_type.SelectionChanged += OnAiTypeChanged;
             ai_communication.ItemsSource = Messages;
 
             // 创建 IdGeneratorOptions 对象，可在构造函数中输入 WorkerId：
@@ -36,35 +39,66 @@ namespace LLM.Interact.UI
 
             // 保存参数（务必调用，否则参数设置不生效）：
             YitIdHelper.SetIdGenerator(options);
+        }
 
-            CurrentChatId = YitIdHelper.NextId();
+        private void SetEnabled(bool flag)
+        {
+            ai_url.IsEnabled = flag;
+            model_name.IsEnabled = flag;
+            ai_con.IsEnabled = flag;
+            ai_dis.IsEnabled = !flag;
+        }
+
+        private void OnAiTypeChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (e.AddedItems.Count > 0)
+            {
+                switch (ai_type.SelectedIndex)
+                {
+                    case 0:
+                        // Ollama
+                        CurrentChatType = AiType.Ollama;
+                        break;
+                }
+
+                if (_chatManager.IsContainsWorker(CurrentChatType))
+                {
+                    SetEnabled(false);
+                }
+                else
+                {
+                    SetEnabled(true);
+                }
+            }
         }
 
         private void StartClick(object? sender, RoutedEventArgs e)
         {
-            if (!ChatConfigs.ContainsKey(CurrentChatId))
+            if (!ChatConfigs.ContainsKey(CurrentChatType))
             {
                 AIConfig config = new();
-                config.Id = CurrentChatId;
+                config.Id = YitIdHelper.NextId();
                 config.AiType = AiType.Ollama;
                 config.Url = ai_url.Text ?? config.Url;
                 config.ModelName = model_name.Text ?? config.ModelName;
                 _chatManager.AddService(config);
-                ChatConfigs.TryAdd(CurrentChatId, config);
-            }
+                ChatConfigs.TryAdd(CurrentChatType, config);
 
-            ai_url.IsEnabled = false;
-            model_name.IsEnabled = false;
-            ai_con.IsEnabled = false;
+                SetEnabled(false);
+            }
         }
 
         private void DisClick(object? sender, RoutedEventArgs e)
         {
+            ChatConfigs.Remove(CurrentChatType, out _);
+            _chatManager.RemoveWorker(CurrentChatType);
+
+            SetEnabled(true);
         }
 
         private void SendClick(object? sender, RoutedEventArgs e)
         {
-            if (_chatManager.IsContainsService(CurrentChatId))
+            if (_chatManager.IsContainsWorker(CurrentChatType))
             {
                 // 我想知道重庆今天白天的天气情况
                 // What is the price of the soup special?
@@ -85,11 +119,7 @@ namespace LLM.Interact.UI
                                 ai_communication.ScrollIntoView(Messages.Last());
                             }
                             AddMessage(tuple.Item1, true, action2);
-                            // 带插件、非流式
-                            // string ret = await chatHelper.AskQuestionAsync(CurrentChatId, tuple.Item1);
-                            // SendTipMsg(ret, action, 1);
-                            // 不带插件、流式
-                            await foreach (string ret in _chatManager.AskStreamingQuestionAsync(CurrentChatId, tuple.Item1))
+                            await foreach (string ret in _chatManager.AskStreamingQuestionAsync(CurrentChatType, tuple.Item1))
                             {
                                 SendTipMsg(ret, null, 2);
                             }

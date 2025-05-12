@@ -16,8 +16,8 @@ namespace LLM.Interact.Core.Core
         private readonly IKernelBuilder _kernelBuilder;
         private Kernel _kernel;
 
-        private ConcurrentDictionary<long, ChatHistory> ChatHistories = new ConcurrentDictionary<long, ChatHistory>();
-        private ConcurrentDictionary<long, IChatCompletionService> ChatWorkers = new ConcurrentDictionary<long, IChatCompletionService>();
+        private readonly ConcurrentDictionary<AiType, ChatHistory> ChatHistories = new ConcurrentDictionary<AiType, ChatHistory>();
+        private readonly ConcurrentDictionary<AiType, IChatCompletionService> ChatWorkers = new ConcurrentDictionary<AiType, IChatCompletionService>();
 
         public ChatManager()
         {
@@ -28,14 +28,9 @@ namespace LLM.Interact.Core.Core
             _kernel.Plugins.Add(KernelPluginFactory.CreateFromType<MenuPlugin>());
         }
 
-        public bool IsContainsService(long id)
-        {
-            return ChatWorkers.ContainsKey(id);
-        }
-
         public void AddService(AIConfig config)
         {
-            if (!ChatWorkers.ContainsKey(config.Id))
+            if (!ChatWorkers.ContainsKey(config.AiType))
             {
                 // 修改服务注册方式，注入HttpClient和模型名称
                 switch (config.AiType)
@@ -45,7 +40,7 @@ namespace LLM.Interact.Core.Core
                         break;
                 }
                 _kernel = _kernelBuilder.Build();
-                if (!ChatHistories.ContainsKey(config.Id))
+                if (!ChatHistories.ContainsKey(config.AiType))
                 {
                     // 获取刚才定义的插件函数的元数据，用于后续创建prompt
                     var plugins = _kernel.Plugins.GetFunctionsMetadata();
@@ -61,24 +56,34 @@ namespace LLM.Interact.Core.Core
                       ";
                     //添加系统提示词
                     history.AddSystemMessage(prompt);
-                    ChatHistories.TryAdd(config.Id, history);
+                    ChatHistories.TryAdd(config.AiType, history);
                 }
 
                 //创建一个对话服务实例
                 var chatCompletionService = _kernel.GetRequiredService<IChatCompletionService>(config.ServerKey);
-                ChatWorkers.TryAdd(config.Id, chatCompletionService);
+                ChatWorkers.TryAdd(config.AiType, chatCompletionService);
             }
         }
 
-        public async IAsyncEnumerable<string> AskStreamingQuestionAsync(long id, string question)
+        public bool IsContainsWorker(AiType type)
         {
-            if (ChatHistories.ContainsKey(id) && ChatWorkers.ContainsKey(id))
+            return ChatWorkers.ContainsKey(type);
+        }
+
+        public bool RemoveWorker(AiType type)
+        {
+            return ChatHistories.Remove(type, out _) && ChatWorkers.Remove(type, out _);
+        }
+
+        public async IAsyncEnumerable<string> AskStreamingQuestionAsync(AiType type, string question)
+        {
+            if (ChatHistories.ContainsKey(type) && ChatWorkers.ContainsKey(type))
             {
-                var history = ChatHistories[id];
+                var history = ChatHistories[type];
                 //添加用户的提问
                 history.AddUserMessage(question);
                 // 流式执行kernel
-                await foreach (var result in ChatWorkers[id].GetStreamingChatMessageContentsAsync(
+                await foreach (var result in ChatWorkers[type].GetStreamingChatMessageContentsAsync(
                     history,
                     executionSettings: null,
                     kernel: _kernel))
@@ -92,15 +97,15 @@ namespace LLM.Interact.Core.Core
             }
         }
 
-        public async Task<string> AskQuestionAsync(long id, string question)
+        public async Task<string> AskQuestionAsync(AiType type, string question)
         {
-            if (ChatHistories.ContainsKey(id) && ChatWorkers.ContainsKey(id))
+            if (ChatHistories.ContainsKey(type) && ChatWorkers.ContainsKey(type))
             {
-                var history = ChatHistories[id];
+                var history = ChatHistories[type];
                 //添加用户的提问
                 history.AddUserMessage(question);
                 //链式执行kernel
-                var result = await ChatWorkers[id].GetChatMessageContentAsync(
+                var result = await ChatWorkers[type].GetChatMessageContentAsync(
                     history,
                     executionSettings: null,
                     kernel: _kernel);

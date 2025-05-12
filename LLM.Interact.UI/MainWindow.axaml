@@ -38,6 +38,17 @@
 		<Border Grid.Row="0" Background="LightGray">
 			<DockPanel>
 				<Label
+					Content="类型:"
+					Margin="10 0 0 0"
+					VerticalAlignment="Center" />
+				<ComboBox
+					x:Name="ai_type"
+					VerticalAlignment="Center"
+					Width="125"
+					Margin="0">
+					<ComboBoxItem Content="Ollama" />
+				</ComboBox>
+				<Label
 					Content="Url:"
 					Margin="10 0 0 0"
 					VerticalAlignment="Center" />
@@ -69,7 +80,6 @@
 					Margin="10 0 0 0"/>
 				<Button
 					x:Name="ai_dis"
-					IsVisible="FALSE"
 					Click="DisClick"
 					VerticalAlignment="Center"
 					Content="断开"
