@@ -47,6 +47,7 @@ namespace LLM.Interact.UI
             model_name.IsEnabled = flag;
             ai_con.IsEnabled = flag;
             ai_dis.IsEnabled = !flag;
+            ai_send.IsEnabled = !flag;
         }
 
         private void OnAiTypeChanged(object? sender, SelectionChangedEventArgs e)
@@ -92,6 +93,7 @@ namespace LLM.Interact.UI
         {
             ChatConfigs.Remove(CurrentChatType, out _);
             _chatManager.RemoveWorker(CurrentChatType);
+            Messages.Clear();
 
             SetEnabled(true);
         }
