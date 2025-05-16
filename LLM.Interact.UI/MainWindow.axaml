@@ -84,6 +84,12 @@
 					VerticalAlignment="Center"
 					Content="断开"
 					Margin="10 0 0 0"/>
+				<Button
+					x:Name="ai_test"
+					Click="TestClick"
+					VerticalAlignment="Center"
+					Content="测试"
+					Margin="10 0 0 0"/>
 			</DockPanel>
 		</Border>
 		<Border Grid.Row="1" Background="LightGray">

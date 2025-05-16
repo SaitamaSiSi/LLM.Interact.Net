@@ -3,6 +3,8 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using LLM.Interact.Core.Core;
 using LLM.Interact.Core.Models;
+using LLM.Interact.Core.Plugins;
+using LLM.Interact.Core.Plugins.Amap;
 using LLM.Interact.UI.DTO;
 using System;
 using System.Collections.Concurrent;
@@ -25,6 +27,8 @@ namespace LLM.Interact.UI
         public MainWindow()
         {
             InitializeComponent();
+
+            ai_test.IsVisible = false;
 
             ai_type.SelectedIndex = 0;
             ai_type.SelectionChanged += OnAiTypeChanged;
@@ -96,6 +100,12 @@ namespace LLM.Interact.UI
             Messages.Clear();
 
             SetEnabled(true);
+        }
+
+        private void TestClick(object? sender, RoutedEventArgs e)
+        {
+            AmapWeatherTool t = new AmapWeatherTool();
+            t.MapsWeather("÷ÿ«Ï");
         }
 
         private void SendClick(object? sender, RoutedEventArgs e)

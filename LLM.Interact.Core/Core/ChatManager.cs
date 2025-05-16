@@ -1,5 +1,5 @@
-﻿using LLM.Interact.Core.Models;
-using LLM.Interact.Core.Plugins;
+﻿using LLM.Interact.Core.Extensions;
+using LLM.Interact.Core.Models;
 using LLM.Interact.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
@@ -23,9 +23,10 @@ namespace LLM.Interact.Core.Core
         {
             _kernelBuilder = Kernel.CreateBuilder();
             // 插入自定义插件
-            _kernelBuilder.Plugins.AddFromType<WeatherPlugin>();
+            _kernelBuilder.AddAmapPlugin();
+            // _kernelBuilder.Plugins.AddFromType<WeatherPlugin>();
             _kernel = _kernelBuilder.Build();
-            _kernel.Plugins.Add(KernelPluginFactory.CreateFromType<MenuPlugin>());
+            // _kernel.Plugins.Add(KernelPluginFactory.CreateFromType<MenuPlugin>());
         }
 
         public void AddService(AIConfig config)
