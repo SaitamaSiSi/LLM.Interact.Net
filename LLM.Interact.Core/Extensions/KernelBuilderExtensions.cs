@@ -13,6 +13,7 @@ namespace LLM.Interact.Core.Extensions
             kernelBuilder.Plugins.AddFromType<AmapIpLocationTool>();
             kernelBuilder.Plugins.AddFromType<AmapSearchDetialTool>();
             kernelBuilder.Plugins.AddFromType<AmapDistanceTool>();
+            kernelBuilder.Plugins.AddFromType<AmapTextSearchTool>();
             return kernelBuilder;
         }
     }

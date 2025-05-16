@@ -4,23 +4,24 @@ using System.Net.Http.Headers;
 using System.Net.Http;
 using System;
 using System.Net.Http.Json;
-using System.Linq;
 using System.Text.Json;
 using LLM.Interact.Core.Models.Amap;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
-    public sealed class AmapWeatherTool : AmapBase
+    public sealed class AmapTextSearchTool : AmapBase
     {
-        public AmapWeatherTool()
+        public AmapTextSearchTool()
         {
-            ApiUrl = "v3/weather/weatherInfo";
+            ApiUrl = "v3/place/text";
             ApiKey = "";
         }
 
-        [KernelFunction, Description("根据城市名称或者标准adcode查询指定城市的天气")]
-        public AmapCmpResponse MapsWeather(
-            [Description("城市名称或者adcode")] string city
+        [KernelFunction, Description("关键词搜，根据用户传入关键词，搜索出相关的POI")]
+        public AmapCmpResponse MapsRegeocode(
+            [Description("搜索关键词")] string keywords,
+            [Description("查询城市")] string city = "",
+            [Description("POI类型，比如加油站")] string types = ""
             )
         {
             using (var httplient = new HttpClient { BaseAddress = new Uri(BaseUrl) })
@@ -28,22 +29,25 @@ namespace LLM.Interact.Core.Plugins.Amap
                 httplient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("amap-tool", "1.0"));
 
                 Parameters.TryAdd("key", ApiKey);
-                Parameters.TryAdd("city", city);
-                Parameters.TryAdd("extensions", "all");
+                Parameters.TryAdd("keywords", keywords);
+                Parameters.TryAdd("city", string.IsNullOrEmpty(city) ? "" : city);
+                Parameters.TryAdd("types", string.IsNullOrEmpty(types) ? "" : types);
+                Parameters.TryAdd("citylimit", "false");
                 Parameters.TryAdd("source", "ts_mcp");
 
                 AmapCmpResponse cmpResponse = new AmapCmpResponse();
                 using var response = httplient.GetAsync(ToUrlString()).GetAwaiter().GetResult();
-                var responseContent = response.Content.ReadFromJsonAsync<AmapWeatherResponse>().GetAwaiter().GetResult();
+                var responseContent = response.Content.ReadFromJsonAsync<AmapTextSearchResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
                     if (responseContent.Status != 1)
                     {
                         var result = new
                         {
-                            responseContent.ForeCasts.FirstOrDefault().City,
-                            responseContent.ForeCasts.FirstOrDefault().Casts,
-                        };
+                            responseContent.Suggestion,
+                            responseContent.Pois,
+                        }
+                    ;
                         cmpResponse.Content.Add(new ContentItem
                         {
                             Text = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true })
@@ -54,7 +58,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                         cmpResponse.IsError = true;
                         cmpResponse.Content.Add(new ContentItem()
                         {
-                            Text = $"Get weather failed: ${responseContent.Info},{responseContent.InfoCode}"
+                            Text = $"Text Search failed: ${responseContent.Info},{responseContent.InfoCode}"
                         });
                     }
                 }
@@ -63,7 +67,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                     cmpResponse.IsError = true;
                     cmpResponse.Content.Add(new ContentItem()
                     {
-                        Text = "Get weather failed: request failed"
+                        Text = "Text Search failed: request failed"
                     });
                 }
                 return cmpResponse;

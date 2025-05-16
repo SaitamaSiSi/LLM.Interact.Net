@@ -5,7 +5,7 @@ using System.Net.Http;
 using System;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Collections.Generic;
+using LLM.Interact.Core.Models.Amap;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
@@ -34,7 +34,7 @@ namespace LLM.Interact.Core.Plugins.Amap
 
                 AmapCmpResponse cmpResponse = new AmapCmpResponse();
                 using var response = httplient.GetAsync(ToUrlString()).GetAwaiter().GetResult();
-                var responseContent = response.Content.ReadFromJsonAsync<AmapRegeocodeResponse>().GetAwaiter().GetResult();
+                var responseContent = response.Content.ReadFromJsonAsync<AmapGeoResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
                     if (responseContent.Status != 1)
@@ -68,24 +68,5 @@ namespace LLM.Interact.Core.Plugins.Amap
                 return cmpResponse;
             }
         }
-
-        private class Geocode
-        {
-            public string Country { get; set; } = string.Empty;
-            public string Province { get; set; } = string.Empty;
-            public string City { get; set; } = string.Empty;
-            public string CityCode { get; set; } = string.Empty;
-            public string District { get; set; } = string.Empty;
-            public string Street { get; set; } = string.Empty;
-            public string Number { get; set; } = string.Empty;
-            public string Adcode { get; set; } = string.Empty;
-            public string Location { get; set; } = string.Empty;
-            public string Level { get; set; } = string.Empty;
-        }
-        private class AmapRegeocodeResponse : AmapResponseBase
-        {
-            public List<Geocode> Geocodes { get; set; } = new List<Geocode>();
-        }
-
     }
 }

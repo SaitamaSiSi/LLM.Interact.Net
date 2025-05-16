@@ -5,8 +5,8 @@ using System.Net.Http;
 using System;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Collections.Generic;
 using System.Linq;
+using LLM.Interact.Core.Models.Amap;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
@@ -76,29 +76,6 @@ namespace LLM.Interact.Core.Plugins.Amap
                 }
                 return cmpResponse;
             }
-        }
-
-        private class Photo
-        {
-            public string Title = string.Empty;
-            public string Url = string.Empty;
-        }
-        private class Poi
-        {
-            public string Id = string.Empty;
-            public string Name = string.Empty;
-            public string Location = string.Empty;
-            public string Address = string.Empty;
-            public string BusinessArea = string.Empty; // BUSINESS_AREA
-            public string CityName = string.Empty;
-            public string Type = string.Empty;
-            public string Alias = string.Empty;
-            public List<Photo> Photos = new List<Photo>();
-
-        }
-        private class AmapSearchDetialResponse : AmapResponseBase
-        {
-            public List<Poi> Pois = new List<Poi>();
         }
     }
 }

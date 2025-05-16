@@ -5,8 +5,7 @@ using System.Net.Http;
 using System;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Collections.Generic;
-using System.Linq;
+using LLM.Interact.Core.Models.Amap;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
@@ -71,18 +70,6 @@ namespace LLM.Interact.Core.Plugins.Amap
                 }
                 return cmpResponse;
             }
-        }
-
-        private class Result
-        {
-            public string OriginId = string.Empty; // origin_id
-            public string DestId = string.Empty; // dest_id
-            public string Distance = string.Empty;
-            public string Duration = string.Empty;
-        }
-        private class AmapDistanceResponse : AmapResponseBase
-        {
-            public List<Result> Results = new List<Result>();
         }
     }
 }
