@@ -4,23 +4,23 @@ using System.Net.Http.Headers;
 using System.Net.Http;
 using System;
 using System.Net.Http.Json;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
-    public sealed class AmapWeatherTool : AmapBase
+    public sealed class AmapGeoTool : AmapBase
     {
-        public AmapWeatherTool()
+        public AmapGeoTool()
         {
-            ApiUrl = "v3/weather/weatherInfo";
+            ApiUrl = "v3/geocode/geo";
             ApiKey = "";
         }
 
-        [KernelFunction, Description("根据城市名称或者标准adcode查询指定城市的天气")]
-        public AmapCmpResponse MapsWeather(
-            [Description("城市名称或者adcode")] string city
+        [KernelFunction, Description("将详细的结构化地址转换为经纬度坐标。支持对地标性名胜景区、建筑物名称解析为经纬度坐标")]
+        public AmapCmpResponse MapsRegeocode(
+            [Description("待解析的结构化地址信息")] string address,
+            [Description("指定查询的城市")] string city
             )
         {
             using (var httplient = new HttpClient { BaseAddress = new Uri(BaseUrl) })
@@ -28,21 +28,20 @@ namespace LLM.Interact.Core.Plugins.Amap
                 httplient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("amap-tool", "1.0"));
 
                 Parameters.TryAdd("key", ApiKey);
+                Parameters.TryAdd("address", address);
                 Parameters.TryAdd("city", city);
-                Parameters.TryAdd("extensions", "all");
                 Parameters.TryAdd("source", "ts_mcp");
 
                 AmapCmpResponse cmpResponse = new AmapCmpResponse();
                 using var response = httplient.GetAsync(ToUrlString()).GetAwaiter().GetResult();
-                var responseContent = response.Content.ReadFromJsonAsync<AmapWeatherResponse>().GetAwaiter().GetResult();
+                var responseContent = response.Content.ReadFromJsonAsync<AmapRegeocodeResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
                     if (responseContent.Status != 1)
                     {
                         var result = new
                         {
-                            responseContent.ForeCasts.FirstOrDefault().City,
-                            responseContent.ForeCasts.FirstOrDefault().Casts,
+                            Results = responseContent.Geocodes
                         };
                         cmpResponse.Content.Add(new ContentItem
                         {
@@ -54,7 +53,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                         cmpResponse.IsError = true;
                         cmpResponse.Content.Add(new ContentItem()
                         {
-                            Text = $"Get weather failed: ${responseContent.Info},{responseContent.InfoCode}"
+                            Text = $"Geocoding failed: ${responseContent.Info},{responseContent.InfoCode}"
                         });
                     }
                 }
@@ -63,34 +62,29 @@ namespace LLM.Interact.Core.Plugins.Amap
                     cmpResponse.IsError = true;
                     cmpResponse.Content.Add(new ContentItem()
                     {
-                        Text = "Get weather failed: request failed"
+                        Text = "Geocoding failed: request failed"
                     });
                 }
                 return cmpResponse;
             }
         }
 
-        private class Cast
+        private class Geocode
         {
-            public string Date { get; set; } = string.Empty;
-            public string Week { get; set; } = string.Empty;
-            public string DayWeather { get; set; } = string.Empty;
-            public string NightWeather { get; set; } = string.Empty;
-            public string DayTemp { get; set; } = string.Empty;
-            public string NightTemp { get; set; } = string.Empty;
-            public string DayWind { get; set; } = string.Empty;
-            public string NightWind { get; set; } = string.Empty;
-            public string DayPower { get; set; } = string.Empty;
-            public string NightPower { get; set; } = string.Empty;
-        }
-        private class Forecast
-        {
+            public string Country { get; set; } = string.Empty;
+            public string Province { get; set; } = string.Empty;
             public string City { get; set; } = string.Empty;
-            public List<Cast> Casts { get; set; } = new List<Cast>();
+            public string CityCode { get; set; } = string.Empty;
+            public string District { get; set; } = string.Empty;
+            public string Street { get; set; } = string.Empty;
+            public string Number { get; set; } = string.Empty;
+            public string Adcode { get; set; } = string.Empty;
+            public string Location { get; set; } = string.Empty;
+            public string Level { get; set; } = string.Empty;
         }
-        private class AmapWeatherResponse : AmapResponseBase
+        private class AmapRegeocodeResponse : AmapResponseBase
         {
-            public List<Forecast> ForeCasts { get; set; } = new List<Forecast>();
+            public List<Geocode> Geocodes { get; set; } = new List<Geocode>();
         }
 
     }

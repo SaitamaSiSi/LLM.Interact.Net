@@ -210,7 +210,8 @@ namespace LLM.Interact.Core.Services
                         TryFindValues(item, ref searches);
                 }
             }
-            return searches.Any(x => x.SearchFunctionNameSucc && x.FunctionParams.All(x => x.Value != null));
+            // return searches.Any(x => x.SearchFunctionNameSucc && x.FunctionParams.All(x => x.Value != null));
+            return searches.Any(x => x.SearchFunctionNameSucc);
         }
 
         public virtual string HistoryToText(ChatHistory history)
