@@ -18,7 +18,7 @@ namespace LLM.Interact.Core.Plugins.Amap
         }
 
         [KernelFunction, Description("IP 定位根据用户输入的 IP 地址，定位 IP 的所在位置")]
-        public AmapCmpResponse MapsRegeocode(
+        public AmapCmpResponse MapsIpLocation(
             [Description("IP地址")] string ip
             )
         {

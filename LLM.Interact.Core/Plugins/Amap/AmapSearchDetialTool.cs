@@ -19,7 +19,7 @@ namespace LLM.Interact.Core.Plugins.Amap
         }
 
         [KernelFunction, Description("查询关键词搜或者周边搜获取到的POI ID的详细信息")]
-        public AmapCmpResponse MapsRegeocode(
+        public AmapCmpResponse MapsSearchDetail(
             [Description("关键词搜或者周边搜获取到的POI ID")] string id
             )
         {

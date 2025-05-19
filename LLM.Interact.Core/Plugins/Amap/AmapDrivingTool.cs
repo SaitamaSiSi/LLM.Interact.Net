@@ -9,19 +9,18 @@ using LLM.Interact.Core.Models.Amap;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
-    public sealed class AmapTextSearchTool : AmapBase
+    public sealed class AmapDrivingTool : AmapBase
     {
-        public AmapTextSearchTool()
+        public AmapDrivingTool()
         {
-            ApiUrl = "v3/place/text";
+            ApiUrl = "v3/direction/driving";
             ApiKey = "";
         }
 
-        [KernelFunction, Description("关键词搜，根据用户传入关键词，搜索出相关的POI")]
-        public AmapCmpResponse MapsTextSearch(
-            [Description("搜索关键词")] string keywords,
-            [Description("查询城市")] string city = "",
-            [Description("POI类型，比如加油站")] string types = ""
+        [KernelFunction, Description("驾车路径规划 API 可以根据用户起终点经纬度坐标规划以小客车、轿车通勤出行的方案，并且返回通勤方案的数据。")]
+        public AmapCmpResponse MapsDirectionDriving(
+            [Description("出发点经度，纬度，坐标格式为：经度，纬度")] string origin,
+            [Description("目的地经度，纬度，坐标格式为：经度，纬度")] string destination
             )
         {
             using (var httplient = new HttpClient { BaseAddress = new Uri(BaseUrl) })
@@ -29,25 +28,21 @@ namespace LLM.Interact.Core.Plugins.Amap
                 httplient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("amap-tool", "1.0"));
 
                 Parameters.TryAdd("key", ApiKey);
-                Parameters.TryAdd("keywords", keywords);
-                Parameters.TryAdd("city", string.IsNullOrEmpty(city) ? "" : city);
-                Parameters.TryAdd("types", string.IsNullOrEmpty(types) ? "" : types);
-                Parameters.TryAdd("citylimit", "false");
+                Parameters.TryAdd("origin", origin);
+                Parameters.TryAdd("destination", destination);
                 Parameters.TryAdd("source", "ts_mcp");
 
                 AmapCmpResponse cmpResponse = new AmapCmpResponse();
                 using var response = httplient.GetAsync(ToUrlString()).GetAwaiter().GetResult();
-                var responseContent = response.Content.ReadFromJsonAsync<AmapTextSearchResponse>().GetAwaiter().GetResult();
+                var responseContent = response.Content.ReadFromJsonAsync<AmapPathPlanResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
                     if (responseContent.Status != 1)
                     {
                         var result = new
                         {
-                            responseContent.Suggestion,
-                            responseContent.Pois,
-                        }
-                    ;
+                            responseContent.Data,
+                        };
                         cmpResponse.Content.Add(new ContentItem
                         {
                             Text = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true })
@@ -58,7 +53,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                         cmpResponse.IsError = true;
                         cmpResponse.Content.Add(new ContentItem()
                         {
-                            Text = $"Text Search failed: ${responseContent.Info},{responseContent.InfoCode}"
+                            Text = $"Direction Driving failed: ${responseContent.Info},{responseContent.InfoCode}"
                         });
                     }
                 }
@@ -67,7 +62,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                     cmpResponse.IsError = true;
                     cmpResponse.Content.Add(new ContentItem()
                     {
-                        Text = "Text Search failed: request failed"
+                        Text = "Direction Driving failed: request failed"
                     });
                 }
                 return cmpResponse;
