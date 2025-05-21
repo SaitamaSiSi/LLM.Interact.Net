@@ -14,7 +14,7 @@ using System.Net.Http.Json;
 using System.IO;
 using System.Runtime.CompilerServices;
 using Newtonsoft.Json;
-using Microsoft.Extensions.AI;
+using LLM.Interact.Core.Core;
 
 namespace LLM.Interact.Core.Services
 {
@@ -43,6 +43,7 @@ namespace LLM.Interact.Core.Services
 
         private readonly HttpClient _httpClient;
         private readonly string _modelName;
+        private const AiType aiType = AiType.Ollama;
 
         public OllamaChatService(AIConfig config)
         {
@@ -68,6 +69,7 @@ namespace LLM.Interact.Core.Services
             var prompt = HistoryToText(chatHistory);
 
             // 构建Ollama API请求
+            List<string>? images = ChatManager.ChatImages.TryGetValue(aiType, out var img) ? img : null;
             var requestBody = new
             {
                 model = _modelName,
@@ -76,7 +78,8 @@ namespace LLM.Interact.Core.Services
                     new
                     {
                         role = "user",
-                        content = prompt
+                        content = prompt,
+                        images
                     }
                 },
                 stream = false
@@ -245,6 +248,7 @@ namespace LLM.Interact.Core.Services
             var prompt = HistoryToText(chatHistory);
 
             // 构建Ollama API请求
+            List<string>? images = ChatManager.ChatImages.TryGetValue(aiType, out var img) ? img : null;
             var requestBody = new
             {
                 model = _modelName,
@@ -253,7 +257,8 @@ namespace LLM.Interact.Core.Services
                     new
                     {
                         role = "user",
-                        content = prompt
+                        content = prompt,
+                        images,
                     }
                 },
                 stream = true

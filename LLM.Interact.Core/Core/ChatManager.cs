@@ -18,6 +18,7 @@ namespace LLM.Interact.Core.Core
 
         private readonly ConcurrentDictionary<AiType, ChatHistory> ChatHistories = new ConcurrentDictionary<AiType, ChatHistory>();
         private readonly ConcurrentDictionary<AiType, IChatCompletionService> ChatWorkers = new ConcurrentDictionary<AiType, IChatCompletionService>();
+        static public ConcurrentDictionary<AiType, List<string>?> ChatImages = new ConcurrentDictionary<AiType, List<string>?>();
 
         public ChatManager()
         {
@@ -76,10 +77,18 @@ namespace LLM.Interact.Core.Core
             return ChatHistories.Remove(type, out _) && ChatWorkers.Remove(type, out _);
         }
 
-        public async IAsyncEnumerable<string> AskStreamingQuestionAsync(AiType type, string question)
+        public async IAsyncEnumerable<string> AskStreamingQuestionAsync(AiType type, string question, List<string>? imgs = null)
         {
             if (ChatHistories.ContainsKey(type) && ChatWorkers.ContainsKey(type))
             {
+                if (ChatImages.ContainsKey(type))
+                {
+                    ChatImages[type] = imgs;
+                }
+                else
+                {
+                    ChatImages.TryAdd(type, imgs);
+                }
                 var history = ChatHistories[type];
                 //添加用户的提问
                 history.AddUserMessage(question);
@@ -98,10 +107,18 @@ namespace LLM.Interact.Core.Core
             }
         }
 
-        public async Task<string> AskQuestionAsync(AiType type, string question)
+        public async Task<string> AskQuestionAsync(AiType type, string question, List<string>? imgs = null)
         {
             if (ChatHistories.ContainsKey(type) && ChatWorkers.ContainsKey(type))
             {
+                if (ChatImages.ContainsKey(type))
+                {
+                    ChatImages[type] = imgs;
+                }
+                else
+                {
+                    ChatImages.TryAdd(type, imgs);
+                }
                 var history = ChatHistories[type];
                 //添加用户的提问
                 history.AddUserMessage(question);

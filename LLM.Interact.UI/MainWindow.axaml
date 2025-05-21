@@ -59,7 +59,7 @@
 						Width="250"
 						Height="20"
 						TabIndex="0"
-						Text="http://192.168.100.198:11434" />
+						Text="" />
 				<Label
 					Content="Name:"
 					Margin="10 0 0 0"
@@ -71,7 +71,7 @@
 						Width="100"
 						Height="20"
 						TabIndex="0"
-						Text="qwen2:7b" />
+						Text="" />
 				<Button
 					x:Name="ai_con"
 					Click="StartClick"
@@ -153,12 +153,18 @@
 							Height="20"
 							TabIndex="0"
 							Watermark="给 AI 发送消息"
-							Text="我想知道重庆今天白天的天气情况" />
+							Text="" />
 						<Button
 							x:Name="ai_send"
 							Click="SendClick"
 							VerticalAlignment="Center"
 							Content="发送"
+							Margin="10 0 0 0"/>
+						<Button
+							x:Name="ai_img"
+							Click="ImgPickClick"
+							VerticalAlignment="Center"
+							Content="图片选择"
 							Margin="10 0 0 0"/>
 					</DockPanel>
 				</Border>

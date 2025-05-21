@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using LLM.Interact.Core.Core;
 using LLM.Interact.Core.Models;
@@ -7,10 +8,13 @@ using LLM.Interact.Core.Plugins;
 using LLM.Interact.Core.Plugins.Amap;
 using LLM.Interact.UI.DTO;
 using System;
+using System.Buffers.Text;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Yitter.IdGenerator;
 
@@ -22,13 +26,24 @@ namespace LLM.Interact.UI
         private AiType CurrentChatType = AiType.Ollama;
         private ConcurrentDictionary<AiType, AIConfig> ChatConfigs = new();
 
+
         public ObservableCollection<MessageModel> Messages { get; } = [];
+        public ObservableCollection<ImageModel> Images { get; } = [];
 
         public MainWindow()
         {
             InitializeComponent();
 
             ai_test.IsVisible = false;
+
+            ai_url.Text = "http://192.168.100.198:11434";
+            // qwen2:7b、gemma3:4b
+            model_name.Text = "gemma3:4b";
+            // 我想知道重庆今天白天的天气情况?
+            // What is the price of the soup special?
+            // 为什么天空是蓝色的?
+            // 图片中有什么,用中文回答?
+            ai_ask.Text = "图片中有什么,用中文回答?";
 
             ai_type.SelectedIndex = 0;
             ai_type.SelectionChanged += OnAiTypeChanged;
@@ -52,6 +67,7 @@ namespace LLM.Interact.UI
             ai_con.IsEnabled = flag;
             ai_dis.IsEnabled = !flag;
             ai_send.IsEnabled = !flag;
+            ai_img.IsEnabled = !flag;
         }
 
         private void OnAiTypeChanged(object? sender, SelectionChangedEventArgs e)
@@ -104,34 +120,32 @@ namespace LLM.Interact.UI
 
         private void TestClick(object? sender, RoutedEventArgs e)
         {
-            AmapWeatherTool t = new AmapWeatherTool();
-            t.MapsWeather("重庆");
+            //AmapWeatherTool t = new AmapWeatherTool();
+            //t.MapsWeather("重庆");
         }
 
         private void SendClick(object? sender, RoutedEventArgs e)
         {
             if (_chatManager.IsContainsWorker(CurrentChatType))
             {
-                // 我想知道重庆今天白天的天气情况
-                // What is the price of the soup special?
-                // 为什么天空是蓝色的?
                 string question = ai_ask.Text ?? string.Empty;
                 if (!string.IsNullOrEmpty(question))
                 {
                     _ = Task.Factory.StartNew(async (obj) =>
                     {
                         Tuple<string>? tuple = (Tuple<string>?)obj;
-                        void action() { ai_send.IsEnabled = true; ai_communication.ScrollIntoView(Messages.Last()); }
+                        void action() { ai_send.IsEnabled = true; ai_img.IsEnabled = true; Images.Clear(); ai_communication.ScrollIntoView(Messages.Last()); }
                         if (tuple != null)
                         {
                             void action2()
                             {
                                 ai_send.IsEnabled = false;
+                                ai_img.IsEnabled = false;
                                 ai_ask.Clear();
                                 ai_communication.ScrollIntoView(Messages.Last());
                             }
                             AddMessage(tuple.Item1, true, action2);
-                            await foreach (string ret in _chatManager.AskStreamingQuestionAsync(CurrentChatType, tuple.Item1))
+                            await foreach (string ret in _chatManager.AskStreamingQuestionAsync(CurrentChatType, tuple.Item1, [.. Images.Select(model => model.Data)]))
                             {
                                 SendTipMsg(ret, null, 2);
                             }
@@ -143,6 +157,29 @@ namespace LLM.Interact.UI
                         }
                     }, Tuple.Create(question));
                 }
+            }
+        }
+
+        private async void ImgPickClick(object? sender, RoutedEventArgs e)
+        {
+            // 从当前控件获取 TopLevel。或者，您也可以使用 Window 引用。
+            var topLevel = TopLevel.GetTopLevel(this);
+
+            // 启动异步操作以打开对话框。
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Open Image File",
+                AllowMultiple = false,
+                FileTypeFilter = [FilePickerFileTypes.ImagePng],
+            });
+
+            if (files.Count >= 1)
+            {
+                ImageModel pickImg = new ImageModel();
+                pickImg.AbsolutePath = files[0].Path.LocalPath;
+                byte[] bytes = await File.ReadAllBytesAsync(pickImg.AbsolutePath);
+                pickImg.Data = Convert.ToBase64String(bytes); // 显式转换为 Base64
+                Images.Add(pickImg);
             }
         }
 
