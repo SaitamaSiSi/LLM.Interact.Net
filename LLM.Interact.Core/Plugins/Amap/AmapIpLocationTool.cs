@@ -14,11 +14,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapIpLocationTool()
         {
             ApiUrl = "v3/ip";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("IP 定位根据用户输入的 IP 地址，定位 IP 的所在位置")]
-        public AmapCmpResponse MapsIpLocation(
+        [KernelFunction("maps_ip_location")]
+        [Description("IP 定位根据用户输入的 IP 地址，定位 IP 的所在位置")]
+        public object MapsIpLocation(
             [Description("IP地址")] string ip
             )
         {
@@ -35,7 +35,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapIpLocationResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var result = new
                         {
@@ -67,7 +67,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "IP Location failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

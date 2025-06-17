@@ -15,11 +15,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapSearchDetialTool()
         {
             ApiUrl = "v3/place/detail";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("查询关键词搜或者周边搜获取到的POI ID的详细信息")]
-        public AmapCmpResponse MapsSearchDetail(
+        [KernelFunction("maps_search_detail")]
+        [Description("查询关键词搜或者周边搜获取到的POI ID的详细信息")]
+        public object MapsSearchDetail(
             [Description("关键词搜或者周边搜获取到的POI ID")] string id
             )
         {
@@ -36,7 +36,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapSearchDetialResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var poi = responseContent.Pois.FirstOrDefault();
                         var result = new
@@ -74,7 +74,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Get poi detail failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

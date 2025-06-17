@@ -14,11 +14,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapRegeocodeTool()
         {
             ApiUrl = "v3/geocode/regeo";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("将一个高德经纬度坐标转换为行政区划地址信息")]
-        public AmapCmpResponse MapsRegeocode(
+        [KernelFunction("maps_regeocode")]
+        [Description("将一个高德经纬度坐标转换为行政区划地址信息")]
+        public object MapsRegeocode(
             [Description("经纬度")] string location
             )
         {
@@ -35,7 +35,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapRegeocodeResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var result = new
                         {
@@ -65,7 +65,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "RGeocoding failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

@@ -14,11 +14,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapDistanceTool()
         {
             ApiUrl = "v3/distance";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("距离测量 API 可以测量两个经纬度坐标之间的距离,支持驾车、步行以及球面距离测量")]
-        public AmapCmpResponse MapsDistance(
+        [KernelFunction("maps_distance")]
+        [Description("距离测量 API 可以测量两个经纬度坐标之间的距离,支持驾车、步行以及球面距离测量")]
+        public object MapsDistance(
             [Description("起点经度，纬度，可以传多个坐标，使用竖线隔离，比如120,30|120,31，坐标格式为：经度，纬度")] string origins,
             [Description("终点经度，纬度，坐标格式为：经度，纬度")] string destination,
             [Description("距离测量类型,1代表驾车距离测量，0代表直线距离测量，3步行距离测量")] string type = "1"
@@ -39,7 +39,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapDistanceResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var result = new
                         {
@@ -68,7 +68,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Direction Distance failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

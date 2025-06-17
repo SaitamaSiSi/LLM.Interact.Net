@@ -39,7 +39,6 @@ namespace LLM.Interact.Core.Services
             }
         }
         public IReadOnlyDictionary<string, object?> Attributes => throw new NotImplementedException();
-        static Stopwatch sw = new Stopwatch();
 
         private readonly HttpClient _httpClient;
         private readonly string _modelName;
@@ -85,7 +84,6 @@ namespace LLM.Interact.Core.Services
                 stream = false
             };
 
-            sw.Start();
             var response = await _httpClient.PostAsJsonAsync(
                 "api/chat",
                 requestBody,
@@ -93,9 +91,7 @@ namespace LLM.Interact.Core.Services
             response.EnsureSuccessStatusCode();
 
             var responseContent = await response.Content.ReadFromJsonAsync<OllamaResponse>();
-            sw.Stop();
 
-            Console.WriteLine($"调用耗时:{Math.Round(sw.Elapsed.TotalSeconds, 2)}秒");
             var chatResponse = responseContent?.Message?.Content ?? "";
             try
             {
@@ -296,7 +292,6 @@ namespace LLM.Interact.Core.Services
             {
                 jToken = JToken.Parse(finalResponse);
                 jToken = ConvertStringToJson(jToken);
-
             }
             catch
             {

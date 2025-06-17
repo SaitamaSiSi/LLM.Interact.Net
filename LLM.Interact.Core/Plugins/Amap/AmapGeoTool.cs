@@ -14,11 +14,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapGeoTool()
         {
             ApiUrl = "v3/geocode/geo";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("将详细的结构化地址转换为经纬度坐标。支持对地标性名胜景区、建筑物名称解析为经纬度坐标")]
-        public AmapCmpResponse MapsGeo(
+        [KernelFunction("maps_geo")]
+        [Description("将详细的结构化地址转换为经纬度坐标。支持对地标性名胜景区、建筑物名称解析为经纬度坐标")]
+        public object MapsGeo(
             [Description("待解析的结构化地址信息")] string address,
             [Description("指定查询的城市")] string city
             )
@@ -37,7 +37,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapGeoResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var result = new
                         {
@@ -65,7 +65,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Geocoding failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

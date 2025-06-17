@@ -14,11 +14,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapTextSearchTool()
         {
             ApiUrl = "v3/place/text";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("关键词搜，根据用户传入关键词，搜索出相关的POI")]
-        public AmapCmpResponse MapsTextSearch(
+        [KernelFunction("maps_text_search")]
+        [Description("关键词搜，根据用户传入关键词，搜索出相关的POI")]
+        public object MapsTextSearch(
             [Description("搜索关键词")] string keywords,
             [Description("查询城市")] string city = "",
             [Description("POI类型，比如加油站")] string types = ""
@@ -40,7 +40,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapTextSearchResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var result = new
                         {
@@ -70,7 +70,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Text Search failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Linq;
 using System.Text.Json;
 using LLM.Interact.Core.Models.Amap;
+using System.Diagnostics;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
@@ -15,11 +16,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapWeatherTool()
         {
             ApiUrl = "v3/weather/weatherInfo";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("根据城市名称或者标准adcode查询指定城市的天气")]
-        public AmapCmpResponse MapsWeather(
+        [KernelFunction("maps_weather")]
+        [Description("根据城市名称或者标准adcode查询指定城市的天气")]
+        public object MapsWeather(
             [Description("城市名称或者adcode")] string city
             )
         {
@@ -37,15 +38,21 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapWeatherResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var result = new
                         {
                             responseContent.ForeCasts.FirstOrDefault().City,
                             responseContent.ForeCasts.FirstOrDefault().Casts,
                         };
+                        Debug.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+                        return new
+                        {
+                            result = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true })
+                        };
                         cmpResponse.Content.Add(new ContentItem
                         {
+                            Type = "json",
                             Text = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true })
                         });
                     }
@@ -66,7 +73,10 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Get weather failed: request failed"
                     });
                 }
-                return cmpResponse;
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

@@ -14,11 +14,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapBicyclingTool()
         {
             ApiUrl = "v4/direction/bicycling";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("骑行路径规划用于规划骑行通勤方案，规划时会考虑天桥、单行线、封路等情况。最大支持 500km 的骑行路线规划")]
-        public AmapCmpResponse MapsBicycling(
+        [KernelFunction("maps_bicycling")]
+        [Description("骑行路径规划用于规划骑行通勤方案，规划时会考虑天桥、单行线、封路等情况。最大支持 500km 的骑行路线规划")]
+        public object MapsBicycling(
             [Description("出发点经纬度，坐标格式为：经度，纬度")] string origin,
             [Description("目的地经纬度，坐标格式为：经度，纬度")] string destination
             )
@@ -65,7 +65,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Direction bicycling failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

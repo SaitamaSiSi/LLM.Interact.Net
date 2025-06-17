@@ -14,11 +14,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapWalkingTool()
         {
             ApiUrl = "v3/direction/walking";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("步行路径规划 API 可以根据输入起点终点经纬度坐标规划100km 以内的步行通勤方案，并且返回通勤方案的数据")]
-        public AmapCmpResponse MapsDirectionWalking(
+        [KernelFunction("maps_direction_walking")]
+        [Description("步行路径规划 API 可以根据输入起点终点经纬度坐标规划100km 以内的步行通勤方案，并且返回通勤方案的数据")]
+        public object MapsDirectionWalking(
             [Description("出发点经度，纬度，坐标格式为：经度，纬度")] string origin,
             [Description("目的地经度，纬度，坐标格式为：经度，纬度")] string destination
             )
@@ -37,7 +37,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapPathPlanResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var result = new
                         {
@@ -65,7 +65,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Direction Walking failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }

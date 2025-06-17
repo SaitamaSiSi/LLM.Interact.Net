@@ -14,11 +14,11 @@ namespace LLM.Interact.Core.Plugins.Amap
         public AmapDrivingTool()
         {
             ApiUrl = "v3/direction/driving";
-            ApiKey = "";
         }
 
-        [KernelFunction, Description("驾车路径规划 API 可以根据用户起终点经纬度坐标规划以小客车、轿车通勤出行的方案，并且返回通勤方案的数据。")]
-        public AmapCmpResponse MapsDirectionDriving(
+        [KernelFunction("maps_direction_driving")]
+        [Description("驾车路径规划 API 可以根据用户起终点经纬度坐标规划以小客车、轿车通勤出行的方案，并且返回通勤方案的数据。")]
+        public object MapsDirectionDriving(
             [Description("出发点经度，纬度，坐标格式为：经度，纬度")] string origin,
             [Description("目的地经度，纬度，坐标格式为：经度，纬度")] string destination
             )
@@ -37,7 +37,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                 var responseContent = response.Content.ReadFromJsonAsync<AmapPathPlanResponse>().GetAwaiter().GetResult();
                 if (responseContent != null)
                 {
-                    if (responseContent.Status != 1)
+                    if (responseContent.Status == 1)
                     {
                         var result = new
                         {
@@ -65,7 +65,11 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Direction Driving failed: request failed"
                     });
                 }
-                return cmpResponse;
+
+                return new
+                {
+                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                };
             }
         }
     }
