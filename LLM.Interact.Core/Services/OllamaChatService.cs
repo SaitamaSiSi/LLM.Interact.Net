@@ -124,7 +124,7 @@ namespace LLM.Interact.Core.Services
                 }
                 res.Messages[^1].Images = images;
             }
-            res.Tools = OllamaChatTools;
+            // res.Tools = OllamaChatTools;
             return res;
         }
 
@@ -136,11 +136,27 @@ namespace LLM.Interact.Core.Services
             List<string>? images = ChatManager.ChatImages.TryGetValue(aiType, out var img) ? img : null;
             OllamaChatParams requestBody = HistoryToRequestBody(chatHistory, images, true);
 
-            var response = await _httpClient.PostAsJsonAsync(
+            HttpResponseMessage response = new HttpResponseMessage();
+            string errMsg = string.Empty;
+            try
+            {
+                response = await _httpClient.PostAsJsonAsync(
                 "api/chat",
                 requestBody,
                 cancellationToken);
-            response.EnsureSuccessStatusCode();
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception e)
+            {
+                errMsg = e.Message;
+            }
+            if (!string.IsNullOrEmpty(errMsg))
+            {
+                yield return new StreamingChatMessageContent(
+                    AuthorRole.Assistant,
+                    content: $"Error: {errMsg}");
+                yield break;
+            }
 
             await using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);

@@ -25,7 +25,7 @@ namespace LLM.Interact.Core.Core
             _kernelBuilder.AddAmapPlugin();
             // _kernelBuilder.Plugins.AddFromType<WeatherPlugin>();
             _kernel = _kernelBuilder.Build();
-            // _kernel.Plugins.Add(KernelPluginFactory.CreateFromType<MenuPlugin>());
+            // _kernel.Plugins.Add(KernelPluginFactory.CreateFromType<WeatherPlugin>());
         }
 
         public void AddService(AIConfig config)
