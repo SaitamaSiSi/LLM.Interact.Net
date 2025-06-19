@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Encodings.Web;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
@@ -8,6 +10,12 @@ namespace LLM.Interact.Core.Plugins.Amap
         protected string ApiUrl { get; set; } = string.Empty;
         protected string ApiKey { get; set; } = string.Empty;
         protected Dictionary<string, string> Parameters { get; set; } = new Dictionary<string, string>();
+        protected JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            IndentSize = 2,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // 禁用 Unicode 转义
+        };
 
         protected string BuildGetParams()
         {

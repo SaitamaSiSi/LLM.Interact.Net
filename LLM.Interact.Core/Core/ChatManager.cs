@@ -1,14 +1,11 @@
-﻿using LLM.Interact.Core.Common;
-using LLM.Interact.Core.Extensions;
+﻿using LLM.Interact.Core.Extensions;
 using LLM.Interact.Core.Models;
 using LLM.Interact.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace LLM.Interact.Core.Core
 {
@@ -47,18 +44,6 @@ namespace LLM.Interact.Core.Core
                 {
                     // 创建聊天历史
                     var history = new ChatHistory();
-                    //// 获取刚才定义的插件函数的元数据，用于后续创建prompt
-                    //var plugins = _kernel.Plugins.GetFunctionsMetadata();
-                    ////生成函数调用提示词，引导模型根据用户请求去调用函数
-                    //var functionsPrompt = ConvertHelper.CreateFunctionsMetaObject(plugins);
-                    ////创建系统提示词，插入刚才生成的提示词
-                    //var prompt = @$"
-                    //  You have access to the following functions. Use them if required:
-                    //  {functionsPrompt}
-                    //  If function calls are used, ensure the output is in JSON format; otherwise, output should be in text format.
-                    //  ";
-                    ////添加系统提示词
-                    // history.AddSystemMessage(prompt);
                     ChatHistories.TryAdd(config.AiType, history);
                 }
 
@@ -106,31 +91,6 @@ namespace LLM.Interact.Core.Core
             {
                 yield return "服务不存在";
             }
-        }
-
-        public async Task<string> AskQuestionAsync(AiType type, string question, List<string>? imgs = null)
-        {
-            if (ChatHistories.ContainsKey(type) && ChatWorkers.ContainsKey(type))
-            {
-                if (ChatImages.ContainsKey(type))
-                {
-                    ChatImages[type] = imgs;
-                }
-                else
-                {
-                    ChatImages.TryAdd(type, imgs);
-                }
-                var history = ChatHistories[type];
-                //添加用户的提问
-                history.AddUserMessage(question);
-                //链式执行kernel
-                var result = await ChatWorkers[type].GetChatMessageContentAsync(
-                    history,
-                    executionSettings: null,
-                    kernel: _kernel);
-                return result.Content!;
-            }
-            return "服务不存在";
         }
     }
 }

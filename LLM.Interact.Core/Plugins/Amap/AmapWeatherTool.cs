@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text.Json;
 using LLM.Interact.Core.Models.Amap;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace LLM.Interact.Core.Plugins.Amap
 {
@@ -45,15 +46,10 @@ namespace LLM.Interact.Core.Plugins.Amap
                             responseContent.ForeCasts.FirstOrDefault().City,
                             responseContent.ForeCasts.FirstOrDefault().Casts,
                         };
-                        Debug.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
-                        return new
-                        {
-                            result = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true })
-                        };
                         cmpResponse.Content.Add(new ContentItem
                         {
                             Type = "text",
-                            Text = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true })
+                            Text = JsonSerializer.Serialize(result, JsonOptions)
                         });
                     }
                     else
@@ -73,9 +69,10 @@ namespace LLM.Interact.Core.Plugins.Amap
                         Text = "Get weather failed: request failed"
                     });
                 }
+                Debug.WriteLine(Regex.Unescape(JsonSerializer.Serialize(cmpResponse, JsonOptions)));
                 return new
                 {
-                    result = JsonSerializer.Serialize(cmpResponse, new JsonSerializerOptions { WriteIndented = true })
+                    result = Regex.Unescape(JsonSerializer.Serialize(cmpResponse, JsonOptions))
                 };
             }
         }

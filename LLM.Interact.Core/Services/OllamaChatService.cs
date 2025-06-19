@@ -1,7 +1,6 @@
 ﻿using LLM.Interact.Core.Models;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,18 +11,34 @@ using System.Threading;
 using System.Net.Http.Json;
 using System.IO;
 using System.Runtime.CompilerServices;
-using Newtonsoft.Json;
 using LLM.Interact.Core.Core;
 using LLM.Interact.Core.Models.Ollama;
+using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace LLM.Interact.Core.Services
 {
     public class OllamaChatService : IChatCompletionService
     {
+        private readonly HttpClient _httpClient;
+        private readonly string _modelName;
+        private const AiType aiType = AiType.Ollama;
         public static Dictionary<string, SearchResult> DicSearchResult = new Dictionary<string, SearchResult>();
         public static List<OllamaChatTool> OllamaChatTools = new List<OllamaChatTool>();
 
-        public IReadOnlyDictionary<string, object?> Attributes => throw new NotImplementedException();
+        public OllamaChatService(AIConfig config)
+        {
+            var handler = new StandardSocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+                MaxConnectionsPerServer = 10
+            };
+            _httpClient = new HttpClient(handler) { BaseAddress = new Uri(config.Url) };
+            // 在请求头中添加协议版本
+            _httpClient.DefaultRequestHeaders.Add("Zyh-Mcp-Version", "1.0");
+            _modelName = config.ModelName;
+        }
 
         public static void GetDicSearchResult(Kernel kernel)
         {
@@ -66,149 +81,27 @@ namespace LLM.Interact.Core.Services
             }
         }
 
-        private readonly HttpClient _httpClient;
-        private readonly string _modelName;
-        private const AiType aiType = AiType.Ollama;
-
-        public OllamaChatService(AIConfig config)
+        bool TryFindValues(List<OllamaFunc> calls, ref List<SearchResult> searches)
         {
-            var handler = new StandardSocketsHttpHandler
+            foreach (var call in calls)
             {
-                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-                MaxConnectionsPerServer = 10
-            };
-            _httpClient = new HttpClient(handler) { BaseAddress = new Uri(config.Url) };
-            // 在请求头中添加协议版本
-            _httpClient.DefaultRequestHeaders.Add("Zyh-Mcp-Version", "1.0");
-            _modelName = config.ModelName;
-        }
-
-        public async Task<IReadOnlyList<ChatMessageContent>> GetChatMessageContentsAsync(
-            ChatHistory chatHistory,
-            PromptExecutionSettings? executionSettings = null,
-            Kernel? kernel = null,
-            CancellationToken cancellationToken = default)
-        {
-            GetDicSearchResult(kernel!);
-
-            // 构建Ollama API请求
-            List<string>? images = ChatManager.ChatImages.TryGetValue(aiType, out var img) ? img : null;
-            OllamaChatParams requestBody = HistoryToRequestBody(chatHistory, images, false);
-
-            var response = await _httpClient.PostAsJsonAsync(
-                "api/chat",
-                requestBody,
-                cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            var responseContent = await response.Content.ReadFromJsonAsync<OllamaResponse>();
-
-            var chatResponse = responseContent?.Message?.Content ?? "";
-            try
-            {
-                JToken jToken = JToken.Parse(chatResponse);
-                jToken = ConvertStringToJson(jToken);
-                var searchs = DicSearchResult.Values.ToList();
-                if (TryFindValues(jToken, ref searchs))
+                var function = call.Function;
+                foreach (var search in searches)
                 {
-                    // 参数完整性检查
-                    //if (searchs.Any(s =>
-                    //    s.FunctionParams.Any(p => p.Value == null)))
-                    //{
-                    //    throw new ArgumentException("函数参数不完整");
-                    //}
-                    //var firstFunc = searchs.First();
-                    var firstFunc = searchs.Where(x => x.SearchFunctionNameSucc).First();
-                    var funcCallResult = await firstFunc.KernelFunction.InvokeAsync(kernel!, firstFunc.FunctionParams);
-                    chatHistory.AddMessage(AuthorRole.Assistant, chatResponse);
-                    chatHistory.AddMessage(AuthorRole.Tool, funcCallResult.ToString());
-                    return await GetChatMessageContentsAsync(chatHistory, kernel: kernel);
-                }
-                else
-                {
-
-                }
-            }
-            catch (Exception e)
-            {
-
-            }
-            chatHistory.AddMessage(AuthorRole.Assistant, chatResponse);
-            return new List<ChatMessageContent> { new ChatMessageContent(AuthorRole.Assistant, chatResponse) };
-        }
-
-        JToken ConvertStringToJson(JToken token)
-        {
-            if (token.Type == JTokenType.Object)
-            {
-                // 遍历对象的每个属性
-                JObject obj = new JObject();
-                foreach (JProperty prop in token.Children<JProperty>())
-                {
-                    obj.Add(prop.Name, ConvertStringToJson(prop.Value));
-                }
-                return obj;
-            }
-            else if (token.Type == JTokenType.Array)
-            {
-                // 遍历数组的每个元素
-                JArray array = new JArray();
-                foreach (JToken item in token.Children())
-                {
-                    array.Add(ConvertStringToJson(item));
-                }
-                return array;
-            }
-            else if (token.Type == JTokenType.String)
-            {
-                // 尝试将字符串解析为 JSON
-                string value = token.ToString();
-                try
-                {
-                    return JToken.Parse(value);
-                }
-                catch (Exception)
-                {
-                    // 解析失败时返回原始字符串
-                    return token;
-                }
-            }
-            else
-            {
-                // 其他类型直接返回
-                return token;
-            }
-        }
-
-        bool TryFindValues(JToken token, ref List<SearchResult> searches)
-        {
-            if (token.Type == JTokenType.Object)
-            {
-                foreach (var child in token.Children<JProperty>())
-                {
-                    foreach (var search in searches)
+                    if (function.Name.ToLower().Equals(search.FunctionName.ToLower()) && search.SearchFunctionNameSucc != true)
                     {
-                        if (child.Value.ToString().ToLower().Equals(search.FunctionName.ToLower()) && search.SearchFunctionNameSucc != true)
-                            search.SearchFunctionNameSucc = true;
-                        foreach (var par in search.FunctionParams)
+                        search.SearchFunctionNameSucc = true;
+                    }
+                    foreach (var par in search.FunctionParams)
+                    {
+                        if (function.Arguments.TryGetValue(par.Key, out var value) && par.Value == null)
                         {
-                            if (child.Name.ToLower().Equals(par.Key.ToLower()) && par.Value == null)
-                                search.FunctionParams[par.Key] = child.Value.ToString().ToLower();
+                            search.FunctionParams[par.Key] = value?.ToString().ToLower();
                         }
                     }
-                    if (searches.Any(x => x.SearchFunctionNameSucc == false || x.FunctionParams.Any(x => x.Value == null)))
-                        TryFindValues(child.Value, ref searches);
                 }
             }
-            else if (token.Type == JTokenType.Array)
-            {
-                foreach (var item in token.Children())
-                {
-                    if (searches.Any(x => x.SearchFunctionNameSucc == false || x.FunctionParams.Any(x => x.Value == null)))
-                        TryFindValues(item, ref searches);
-                }
-            }
+
             // return searches.Any(x => x.SearchFunctionNameSucc && x.FunctionParams.All(x => x.Value != null));
             return searches.Any(x => x.SearchFunctionNameSucc);
         }
@@ -253,41 +146,45 @@ namespace LLM.Interact.Core.Services
             using var reader = new StreamReader(stream);
             var completeResponse = new StringBuilder();
 
+            List<OllamaFunc> ollamaFuncs = new List<OllamaFunc>();
             while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
             {
                 Thread.Sleep(1);
                 var line = await reader.ReadLineAsync();
                 if (string.IsNullOrEmpty(line)) continue;
 
-                var chunk = JsonConvert.DeserializeObject<OllamaResponse>(line);
-                if (chunk == null) continue;
-                if (chunk.Done) break;
-                else completeResponse.Append(chunk.Message?.Content.ToString());
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter() }
+                };
+                var chunk = JsonSerializer.Deserialize<OllamaResponse>(line, options);
+                if (chunk == null)
+                {
+                    continue;
+                }
+                if (chunk.Done)
+                {
+                    break;
+                }
+                else
+                {
+                    completeResponse.Append(chunk.Message?.Content.ToString());
+                    ollamaFuncs.AddRange(chunk.Message?.ToolCalls ?? new List<OllamaFunc>());
+                }
                 string msg = chunk.Message?.Content ?? "";
                 yield return new StreamingChatMessageContent(
                     AuthorRole.Assistant,
                     content: msg);
             }
 
-            var finalResponse = completeResponse.ToString();
-            JToken? jToken = null;
-            try
-            {
-                jToken = JToken.Parse(finalResponse);
-                jToken = ConvertStringToJson(jToken);
-            }
-            catch
-            {
-
-            }
-            if (jToken != null)
+            if (ollamaFuncs.Count > 0)
             {
                 var searchs = DicSearchResult.Values.ToList();
-                if (TryFindValues(jToken, ref searchs))
+                if (TryFindValues(ollamaFuncs, ref searchs))
                 {
                     var firstFunc = searchs.Where(x => x.SearchFunctionNameSucc).First();
                     var funcCallResult = await firstFunc.KernelFunction.InvokeAsync(kernel!, firstFunc.FunctionParams);
-                    chatHistory.AddMessage(AuthorRole.Assistant, finalResponse);
                     chatHistory.AddMessage(AuthorRole.Tool, funcCallResult.ToString());
                     await foreach (var result in GetStreamingChatMessageContentsAsync(chatHistory, kernel: kernel))
                     {
@@ -297,8 +194,26 @@ namespace LLM.Interact.Core.Services
                     }
                 }
             }
-            chatHistory.AddMessage(AuthorRole.Assistant, finalResponse);
+            else
+            {
+                var finalResponse = completeResponse.ToString();
+                chatHistory.AddMessage(AuthorRole.Assistant, finalResponse);
+            }
         }
-    }
 
+        #region 暂不实现
+
+        public IReadOnlyDictionary<string, object?> Attributes => throw new NotImplementedException();
+
+        public Task<IReadOnlyList<ChatMessageContent>> GetChatMessageContentsAsync(
+            ChatHistory chatHistory,
+            PromptExecutionSettings? executionSettings = null,
+            Kernel? kernel = null,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        #endregion
+    }
 }
