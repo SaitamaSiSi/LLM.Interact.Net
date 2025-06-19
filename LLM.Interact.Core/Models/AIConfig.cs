@@ -13,5 +13,7 @@
         public string ServerKey { get; set; } = "AiChat";
 
         public string ApiKey { get; set; } = string.Empty;
+
+        public bool IsUseTools { get; set; } = false;
     }
 }

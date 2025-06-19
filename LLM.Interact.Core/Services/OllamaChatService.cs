@@ -21,10 +21,9 @@ namespace LLM.Interact.Core.Services
     public class OllamaChatService : IChatCompletionService
     {
         private readonly HttpClient _httpClient;
-        private readonly string _modelName;
         private const AiType aiType = AiType.Ollama;
-        public static Dictionary<string, SearchResult> DicSearchResult = new Dictionary<string, SearchResult>();
-        public static List<OllamaChatTool> OllamaChatTools = new List<OllamaChatTool>();
+        private static Dictionary<string, SearchResult> DicSearchResult = new Dictionary<string, SearchResult>();
+        private static List<OllamaChatTool> OllamaChatTools = new List<OllamaChatTool>();
 
         public OllamaChatService(AIConfig config)
         {
@@ -37,7 +36,6 @@ namespace LLM.Interact.Core.Services
             _httpClient = new HttpClient(handler) { BaseAddress = new Uri(config.Url) };
             // 在请求头中添加协议版本
             _httpClient.DefaultRequestHeaders.Add("Zyh-Mcp-Version", "1.0");
-            _modelName = config.ModelName;
         }
 
         public static void GetDicSearchResult(Kernel kernel)
@@ -109,7 +107,8 @@ namespace LLM.Interact.Core.Services
         private OllamaChatParams HistoryToRequestBody(ChatHistory history, List<string>? images, bool isStream)
         {
             OllamaChatParams res = new OllamaChatParams();
-            res.Model = _modelName;
+            ChatManager.ChatModels.TryGetValue(aiType, out var modelCofig);
+            res.Model = modelCofig.ModelName;
             res.Stream = isStream;
             if (history.Any())
             {
@@ -124,7 +123,10 @@ namespace LLM.Interact.Core.Services
                 }
                 res.Messages[^1].Images = images;
             }
-            // res.Tools = OllamaChatTools;
+            if (modelCofig.IsUseTools)
+            {
+                res.Tools = OllamaChatTools;
+            }
             return res;
         }
 
@@ -200,13 +202,16 @@ namespace LLM.Interact.Core.Services
                 if (TryFindValues(ollamaFuncs, ref searchs))
                 {
                     var firstFunc = searchs.Where(x => x.SearchFunctionNameSucc).First();
-                    var funcCallResult = await firstFunc.KernelFunction.InvokeAsync(kernel!, firstFunc.FunctionParams);
-                    chatHistory.AddMessage(AuthorRole.Tool, funcCallResult.ToString());
-                    await foreach (var result in GetStreamingChatMessageContentsAsync(chatHistory, kernel: kernel))
+                    if (firstFunc.KernelFunction != null)
                     {
-                        yield return new StreamingChatMessageContent(
-                    AuthorRole.Assistant,
-                    result.Content!);
+                        var funcCallResult = await firstFunc.KernelFunction.InvokeAsync(kernel!, firstFunc.FunctionParams);
+                        chatHistory.AddMessage(AuthorRole.Tool, funcCallResult.ToString());
+                        await foreach (var result in GetStreamingChatMessageContentsAsync(chatHistory, kernel: kernel))
+                        {
+                            yield return new StreamingChatMessageContent(
+                        AuthorRole.Assistant,
+                        result.Content!);
+                        }
                     }
                 }
             }

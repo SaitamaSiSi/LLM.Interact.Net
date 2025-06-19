@@ -17,6 +17,7 @@ namespace LLM.Interact.Core.Core
         private readonly ConcurrentDictionary<AiType, ChatHistory> ChatHistories = new ConcurrentDictionary<AiType, ChatHistory>();
         private readonly ConcurrentDictionary<AiType, IChatCompletionService> ChatWorkers = new ConcurrentDictionary<AiType, IChatCompletionService>();
         static public ConcurrentDictionary<AiType, List<string>?> ChatImages = new ConcurrentDictionary<AiType, List<string>?>();
+        static public ConcurrentDictionary<AiType, AIConfig> ChatModels = new ConcurrentDictionary<AiType, AIConfig>();
 
         public ChatManager()
         {
@@ -50,6 +51,12 @@ namespace LLM.Interact.Core.Core
                 //创建一个对话服务实例
                 var chatCompletionService = _kernel.GetRequiredService<IChatCompletionService>(config.ServerKey);
                 ChatWorkers.TryAdd(config.AiType, chatCompletionService);
+                ChatModels.TryAdd(config.AiType, config);
+            }
+            else
+            {
+                ChatModels.TryGetValue(config.AiType, out var oldValue);
+                ChatModels.TryUpdate(config.AiType, config, oldValue);
             }
         }
 
@@ -58,9 +65,11 @@ namespace LLM.Interact.Core.Core
             return ChatWorkers.ContainsKey(type);
         }
 
-        public bool RemoveWorker(AiType type)
+        public void RemoveHistory(AiType type)
         {
-            return ChatHistories.Remove(type, out _) && ChatWorkers.Remove(type, out _);
+            ChatHistories.Remove(type, out _);
+            var history = new ChatHistory();
+            ChatHistories.TryAdd(type, history);
         }
 
         public async IAsyncEnumerable<string> AskStreamingQuestionAsync(AiType type, string question, List<string>? imgs = null)

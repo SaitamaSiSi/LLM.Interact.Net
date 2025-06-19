@@ -4,19 +4,17 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using LLM.Interact.Core.Core;
 using LLM.Interact.Core.Models;
-using LLM.Interact.Core.Plugins;
-using LLM.Interact.Core.Plugins.Amap;
 using LLM.Interact.UI.DTO;
 using System;
-using System.Buffers.Text;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Text;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Yitter.IdGenerator;
+using System.Net.Http.Json;
+using LLM.Interact.Core.Models.Ollama;
+using Microsoft.Extensions.AI;
 
 namespace LLM.Interact.UI
 {
@@ -24,8 +22,6 @@ namespace LLM.Interact.UI
     {
         private readonly ChatManager _chatManager = new();
         private AiType CurrentChatType = AiType.Ollama;
-        private ConcurrentDictionary<AiType, AIConfig> ChatConfigs = new();
-
 
         public ObservableCollection<MessageModel> Messages { get; } = [];
         public ObservableCollection<ImageModel> Images { get; } = [];
@@ -34,18 +30,23 @@ namespace LLM.Interact.UI
         {
             InitializeComponent();
 
-            ai_test.IsVisible = false;
-
-            ai_url.Text = "http://192.168.31.14:11434";
+            ai_con.IsEnabled = false;
+            ai_dis.IsEnabled = false;
+            ai_send.IsEnabled = false;
+            ai_img.IsEnabled = false;
+            ai_tools.IsEnabled = false;
+            ai_model.IsEnabled = false;
+            ai_ask.IsEnabled = false;
+            ai_url.Text = "http://192.168.100.198:11434";
             // qwen2.5:7b、gemma3:4b、deepseek-r1:8b
-            model_name.Text = "gemma3:4b";
             // 我想知道重庆明天的天气情况?
             // 为什么天空是蓝色的?
             // 图片中有什么,用中文回答?
-            ai_ask.Text = " 图片中有什么,用中文回答?";
+            // ai_ask.Text = "图片中有什么,用中文回答?";
 
             ai_type.SelectedIndex = 0;
             ai_type.SelectionChanged += OnAiTypeChanged;
+            ai_tools.IsCheckedChanged += OnAiToolsChecked;
             ai_communication.ItemsSource = Messages;
 
             // 创建 IdGeneratorOptions 对象，可在构造函数中输入 WorkerId：
@@ -61,12 +62,12 @@ namespace LLM.Interact.UI
 
         private void SetEnabled(bool flag)
         {
-            ai_url.IsEnabled = flag;
-            model_name.IsEnabled = flag;
+            ai_model.IsEnabled = flag;
             ai_con.IsEnabled = flag;
             ai_dis.IsEnabled = !flag;
             ai_send.IsEnabled = !flag;
             ai_img.IsEnabled = !flag;
+            ai_tools.IsEnabled = !flag;
         }
 
         private void OnAiTypeChanged(object? sender, SelectionChangedEventArgs e)
@@ -92,35 +93,97 @@ namespace LLM.Interact.UI
             }
         }
 
+        private void OnAiToolsChecked(object? sender, RoutedEventArgs e)
+        {
+            ChatManager.ChatModels.TryGetValue(CurrentChatType, out var oldValue);
+            if (oldValue != null)
+            {
+                var config = oldValue;
+                config.IsUseTools = !config.IsUseTools;
+                ChatManager.ChatModels.TryUpdate(CurrentChatType, config, oldValue);
+            }
+        }
+
+        private void ConfirmClick(object? sender, RoutedEventArgs e)
+        {
+            string url = ai_url.Text ?? string.Empty;
+            try
+            {
+                using (var httplient = new HttpClient { BaseAddress = new Uri(url) })
+                {
+                    using var response = httplient.GetAsync("/api/tags").GetAwaiter().GetResult();
+                    var tags = response.Content.ReadFromJsonAsync<OllamaTags>().GetAwaiter().GetResult();
+                    if (tags != null)
+                    {
+                        if (tags.Models.Count == 0)
+                        {
+                            SendTipMsg("该地址中不存在任何模型");
+                        }
+                        else
+                        {
+                            foreach (var model in tags.Models)
+                            {
+                                if (!string.IsNullOrEmpty(model.Name))
+                                {
+                                    ai_model.Items.Add(model.Name);
+                                }
+                            }
+                            ai_type.IsEnabled = false;
+                            ai_url.IsEnabled = false;
+                            ai_confirm.IsEnabled = false;
+                            ai_con.IsEnabled = true;
+                            ai_dis.IsEnabled = true;
+                            ai_send.IsEnabled = true;
+                            ai_img.IsEnabled = true;
+                            ai_tools.IsEnabled = true;
+                            ai_model.IsEnabled = true;
+                            ai_ask.IsEnabled = true;
+                        }
+                    }
+                    else
+                    {
+                        SendTipMsg("获取模型数据为null");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                SendTipMsg($"获取模型失败:{ex.Message}");
+            }
+        }
+
         private void StartClick(object? sender, RoutedEventArgs e)
         {
-            if (!ChatConfigs.ContainsKey(CurrentChatType))
+            string modelName = (string)(ai_model.SelectedValue ?? string.Empty);
+            if (string.IsNullOrEmpty(modelName))
             {
-                AIConfig config = new();
-                config.Id = YitIdHelper.NextId();
-                config.AiType = AiType.Ollama;
-                config.Url = ai_url.Text ?? config.Url;
-                config.ModelName = model_name.Text ?? config.ModelName;
-                _chatManager.AddService(config);
-                ChatConfigs.TryAdd(CurrentChatType, config);
-
-                SetEnabled(false);
+                SendTipMsg("请选择模型");
+                return;
             }
+            string url = ai_url.Text ?? string.Empty;
+            if (string.IsNullOrEmpty(url))
+            {
+                SendTipMsg("请填写服务地址");
+                return;
+            }
+            AIConfig config = new();
+            config.Id = YitIdHelper.NextId();
+            config.AiType = AiType.Ollama;
+            config.Url = url;
+            config.ModelName = modelName;
+            config.IsUseTools = ai_tools.IsChecked ?? false;
+            _chatManager.AddService(config);
+
+            SetEnabled(false);
         }
 
         private void DisClick(object? sender, RoutedEventArgs e)
         {
-            ChatConfigs.Remove(CurrentChatType, out _);
-            _chatManager.RemoveWorker(CurrentChatType);
+            _chatManager.RemoveHistory(CurrentChatType);
             Messages.Clear();
+            Images.Clear();
 
             SetEnabled(true);
-        }
-
-        private void TestClick(object? sender, RoutedEventArgs e)
-        {
-            //AmapWeatherTool t = new AmapWeatherTool();
-            //t.MapsWeather("重庆");
         }
 
         private void SendClick(object? sender, RoutedEventArgs e)
@@ -133,13 +196,14 @@ namespace LLM.Interact.UI
                     _ = Task.Factory.StartNew(async (obj) =>
                     {
                         Tuple<string>? tuple = (Tuple<string>?)obj;
-                        void action() { ai_send.IsEnabled = true; ai_img.IsEnabled = true; Images.Clear(); ai_communication.ScrollIntoView(Messages.Last()); }
+                        void action() { ai_send.IsEnabled = true; ai_img.IsEnabled = true; ai_tools.IsEnabled = true; Images.Clear(); ai_communication.ScrollIntoView(Messages.Last()); }
                         if (tuple != null)
                         {
                             void action2()
                             {
                                 ai_send.IsEnabled = false;
                                 ai_img.IsEnabled = false;
+                                ai_tools.IsEnabled = false;
                                 ai_ask.Clear();
                                 ai_communication.ScrollIntoView(Messages.Last());
                             }
