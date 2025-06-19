@@ -52,7 +52,7 @@ namespace LLM.Interact.Core.Plugins.Amap
                         };
                         cmpResponse.Content.Add(new ContentItem
                         {
-                            Type = "json",
+                            Type = "text",
                             Text = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true })
                         });
                     }

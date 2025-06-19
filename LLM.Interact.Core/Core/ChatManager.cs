@@ -1,4 +1,5 @@
-﻿using LLM.Interact.Core.Extensions;
+﻿using LLM.Interact.Core.Common;
+using LLM.Interact.Core.Extensions;
 using LLM.Interact.Core.Models;
 using LLM.Interact.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,20 +45,20 @@ namespace LLM.Interact.Core.Core
                 _kernel = _kernelBuilder.Build();
                 if (!ChatHistories.ContainsKey(config.AiType))
                 {
-                    // 获取刚才定义的插件函数的元数据，用于后续创建prompt
-                    var plugins = _kernel.Plugins.GetFunctionsMetadata();
-                    //生成函数调用提示词，引导模型根据用户请求去调用函数
-                    var functionsPrompt = CreateFunctionsMetaObject(plugins);
                     // 创建聊天历史
                     var history = new ChatHistory();
-                    //创建系统提示词，插入刚才生成的提示词
-                    var prompt = @$"
-                      You have access to the following functions. Use them if required:
-                      {functionsPrompt}
-                      If function calls are used, ensure the output is in JSON format; otherwise, output should be in text format.
-                      ";
-                    //添加系统提示词
-                    history.AddSystemMessage(prompt);
+                    //// 获取刚才定义的插件函数的元数据，用于后续创建prompt
+                    //var plugins = _kernel.Plugins.GetFunctionsMetadata();
+                    ////生成函数调用提示词，引导模型根据用户请求去调用函数
+                    //var functionsPrompt = ConvertHelper.CreateFunctionsMetaObject(plugins);
+                    ////创建系统提示词，插入刚才生成的提示词
+                    //var prompt = @$"
+                    //  You have access to the following functions. Use them if required:
+                    //  {functionsPrompt}
+                    //  If function calls are used, ensure the output is in JSON format; otherwise, output should be in text format.
+                    //  ";
+                    ////添加系统提示词
+                    // history.AddSystemMessage(prompt);
                     ChatHistories.TryAdd(config.AiType, history);
                 }
 
@@ -130,63 +131,6 @@ namespace LLM.Interact.Core.Core
                 return result.Content!;
             }
             return "服务不存在";
-        }
-
-        private static JToken? CreateFunctionsMetaObject(IList<KernelFunctionMetadata> plugins)
-        {
-            if (plugins.Count < 1) return null;
-            if (plugins.Count == 1) return CreateFunctionMetaObject(plugins[0]);
-
-            JArray promptFunctions = new JArray();
-            foreach (var plugin in plugins)
-            {
-                var pluginFunctionWrapper = CreateFunctionMetaObject(plugin);
-                promptFunctions.Add(pluginFunctionWrapper);
-            }
-
-            return promptFunctions;
-        }
-
-        static JObject CreateFunctionMetaObject(KernelFunctionMetadata plugin)
-        {
-            var pluginFunctionWrapper = new JObject()
-            {
-                { "type", "function" },
-            };
-
-            var pluginFunction = new JObject()
-            {
-                { "name", plugin.Name },
-                { "description", plugin.Description },
-            };
-
-            var pluginFunctionParameters = new JObject()
-            {
-                { "type", "object" },
-            };
-            var pluginProperties = new JObject();
-            JArray requiredParameters = new JArray();
-            foreach (var parameter in plugin.Parameters)
-            {
-                var property = new JObject()
-                {
-                    { "type", parameter.ParameterType?.ToString() },
-                    { "description", parameter.Description },
-                };
-
-                pluginProperties.Add(parameter.Name, property);
-                if (parameter.IsRequired)
-                {
-                    requiredParameters.Add(parameter.Name);
-                }
-            }
-
-            pluginFunctionParameters.Add("properties", pluginProperties);
-            pluginFunctionParameters.Add("required", requiredParameters);
-            pluginFunction.Add("parameters", pluginFunctionParameters);
-            pluginFunctionWrapper.Add("function", pluginFunction);
-
-            return pluginFunctionWrapper;
         }
     }
 }

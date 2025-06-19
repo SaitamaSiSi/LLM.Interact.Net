@@ -37,13 +37,13 @@ namespace LLM.Interact.UI
             ai_test.IsVisible = false;
 
             ai_url.Text = "http://192.168.100.198:11434";
-            // qwen2:7b、gemma3:4b
+            // qwen2:7b、gemma3:4b、deepseek-r1:1.5b
             model_name.Text = "qwen2:7b";
             // 我想知道重庆今天白天的天气情况?
             // What is the price of the soup special?
             // 为什么天空是蓝色的?
             // 图片中有什么,用中文回答?
-            ai_ask.Text = "我想知道重庆明天的天气情况?";
+            ai_ask.Text = "我想知道重庆今天白天的天气情况?";
 
             ai_type.SelectedIndex = 0;
             ai_type.SelectionChanged += OnAiTypeChanged;
