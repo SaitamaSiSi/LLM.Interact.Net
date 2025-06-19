@@ -5,6 +5,7 @@
         x:Class="LLM.Interact.UI.MainWindow"
 		xmlns:vm="using:LLM.Interact.UI.DTO"
 		xmlns:c="clr-namespace:LLM.Interact.UI.Core"
+		xmlns:spinner="using:LLM.Interact.Components.Spinner"
 		mc:Ignorable="d"
 		Width="900" Height="600"
 		WindowStartupLocation="CenterScreen"
