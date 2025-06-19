@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using Yitter.IdGenerator;
 using System.Net.Http.Json;
 using LLM.Interact.Core.Models.Ollama;
-using Microsoft.Extensions.AI;
 
 namespace LLM.Interact.UI
 {

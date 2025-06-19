@@ -1,11 +1,18 @@
 ﻿using LLM.Interact.Core.Extensions;
 using LLM.Interact.Core.Models;
+using LLM.Interact.Core.Models.Ollama;
 using LLM.Interact.Core.Services;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net.Http;
+using static System.Net.Mime.MediaTypeNames;
+using System.Threading;
+using System.Net.Http.Json;
 
 namespace LLM.Interact.Core.Core
 {
@@ -52,12 +59,28 @@ namespace LLM.Interact.Core.Core
                 var chatCompletionService = _kernel.GetRequiredService<IChatCompletionService>(config.ServerKey);
                 ChatWorkers.TryAdd(config.AiType, chatCompletionService);
                 ChatModels.TryAdd(config.AiType, config);
+                LoadModel(config);
             }
             else
             {
                 ChatModels.TryGetValue(config.AiType, out var oldValue);
                 ChatModels.TryUpdate(config.AiType, config, oldValue);
+                LoadModel(config);
             }
+        }
+
+        public void LoadModel(AIConfig config)
+        {
+            using var httplient = new HttpClient { BaseAddress = new Uri(config.Url) };
+            var requestBody = new { model = config.ModelName };
+            using var response = httplient.PostAsJsonAsync("/api/chat", requestBody, CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        public void UnLoadModel(AIConfig config)
+        {
+            using var httplient = new HttpClient { BaseAddress = new Uri(config.Url) };
+            var requestBody = new { model = config.ModelName, keep_alive = 0 };
+            using var response = httplient.PostAsJsonAsync("/api/chat", requestBody, CancellationToken.None).GetAwaiter().GetResult();
         }
 
         public bool IsContainsWorker(AiType type)
@@ -67,6 +90,8 @@ namespace LLM.Interact.Core.Core
 
         public void RemoveHistory(AiType type)
         {
+            ChatModels.TryGetValue(type, out var config);
+            UnLoadModel(config);
             ChatHistories.Remove(type, out _);
             var history = new ChatHistory();
             ChatHistories.TryAdd(type, history);
