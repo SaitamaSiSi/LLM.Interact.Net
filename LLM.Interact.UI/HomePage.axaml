@@ -1,0 +1,178 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        x:Class="LLM.Interact.UI.HomePage"
+        xmlns:vm="using:LLM.Interact.UI.DTO"
+        xmlns:c="clr-namespace:LLM.Interact.UI.Core"
+        mc:Ignorable="d"
+        Width="900" Height="600"
+        Background="#F5F7FB">
+
+	<UserControl.Resources>
+		<c:BoolToBubbleColorConverter x:Key="BoolToBubbleColorConverter" />
+		<c:BoolToHorizontalAlignmentConverter x:Key="BoolToHorizontalAlignmentConverter"/>
+	</UserControl.Resources>
+
+	<UserControl.Styles>
+		<!-- 增强样式保持不变 -->
+		<Style Selector="Button:pointerover">
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="Background" Value="#4A6572"/>
+		</Style>
+		<Style Selector="Button">
+			<Setter Property="Background" Value="#344955"/>
+			<Setter Property="Foreground" Value="White"/>
+			<Setter Property="Padding" Value="12 6"/>
+			<Setter Property="CornerRadius" Value="4"/>
+		</Style>
+		<Style Selector="ComboBox">
+			<Setter Property="Background" Value="White"/>
+			<Setter Property="BorderBrush" Value="#D1D5DB"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="Padding" Value="8"/>
+		</Style>
+		<Style Selector="TextBox">
+			<Setter Property="Background" Value="White"/>
+			<Setter Property="BorderBrush" Value="#D1D5DB"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="Padding" Value="6"/>
+			<Setter Property="CornerRadius" Value="4"/>
+		</Style>
+		<Style Selector="TextBlock.header">
+			<Setter Property="FontSize" Value="14"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+			<Setter Property="Foreground" Value="#344955"/>
+			<Setter Property="Margin" Value="0 0 0 4"/>
+		</Style>
+		<!-- 添加状态文本样式 -->
+		<Style Selector="TextBlock.status">
+			<Setter Property="FontStyle" Value="Italic"/>
+			<Setter Property="Foreground" Value="#78909C"/>
+			<Setter Property="HorizontalAlignment" Value="Center"/>
+			<Setter Property="VerticalAlignment" Value="Center"/>
+		</Style>
+	</UserControl.Styles>
+
+	<Grid x:Name="MainGrid" Margin="20">
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto"/>
+			<!-- 服务配置 -->
+			<RowDefinition Height="Auto"/>
+			<!-- 模型管理 -->
+			<RowDefinition Height="*"/>
+			<!-- 消息区域 -->
+			<RowDefinition Height="Auto"/>
+			<!-- 输入区域 -->
+			<RowDefinition Height="20"/>
+			<!-- 状态栏 -->
+		</Grid.RowDefinitions>
+
+		<!-- 服务配置区域 -->
+		<StackPanel Grid.Row="0" Margin="0 0 0 20">
+			<TextBlock Classes="header" Text="AI 服务配置" Margin="0 0 0 8"/>
+
+			<Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+				<ComboBox x:Name="ai_type" Grid.Column="0" Width="125" Height="30">
+					<ComboBoxItem Content="Ollama" />
+				</ComboBox>
+				<TextBox x:Name="ai_url" Grid.Column="1"
+                         Margin="10,0" Height="30"
+                         Text="http://192.168.100.198:11434"/>
+				<Button x:Name="ai_confirm" Grid.Column="2"
+                        Click="ConfirmClick" Width="80"
+                        Content="确定"/>
+			</Grid>
+		</StackPanel>
+
+		<Button Grid.Row="0"
+				HorizontalAlignment="Right"
+				VerticalAlignment="Top"
+				Margin="0,-10,0,0"
+				Click="OnAskQuestionClick"
+				Background="Transparent"
+				BorderThickness="0"
+				Padding="0"
+				ToolTip.Tip="获取帮助"
+				ZIndex="100">
+			<Image Height="30" Width="30"
+				   Source="/Assets/ask-question.png"/>
+		</Button>
+
+		<!-- 模型管理区域 -->
+		<StackPanel Grid.Row="1" Margin="0 0 0 25">
+			<TextBlock Classes="header" Text="模型管理" Margin="0 0 0 8"/>
+
+			<Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
+				<ComboBox x:Name="ai_model" Grid.Column="0" />
+				<Button x:Name="ai_con" Grid.Column="1"
+                        Click="StartClick" Width="80"
+                        Content="连接" Margin="10,0"/>
+				<Button x:Name="ai_dis" Grid.Column="2"
+                        Click="DisClick" Width="80"
+                        Content="断开" Background="#E57373"/>
+			</Grid>
+		</StackPanel>
+
+		<!-- 消息区域 -->
+		<Border Grid.Row="2" Background="White" CornerRadius="4" Margin="0 0 0 20"
+                BorderBrush="#D1D5DB" BorderThickness="1">
+			<ListBox x:Name="ai_communication" x:DataType="vm:MessageModel"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     BorderThickness="0" Background="Transparent"
+                     Padding="15">
+				<ListBox.Styles>
+					<Style Selector="ListBoxItem:selected">
+						<Setter Property="Background" Value="Transparent"/>
+					</Style>
+				</ListBox.Styles>
+				<ListBox.ItemTemplate>
+					<DataTemplate x:DataType="vm:MessageModel">
+						<StackPanel HorizontalAlignment="{Binding IsUserMessage, Converter={StaticResource BoolToHorizontalAlignmentConverter}}"
+                                    Orientation="Horizontal" Spacing="8" Margin="0 10">
+							<!-- AI 头像 -->
+							<Panel IsVisible="{Binding !IsUserMessage}" VerticalAlignment="Top">
+								<Image Height="32" Width="32" Source="/Assets/ai-head.ico"/>
+							</Panel>
+
+							<!-- 消息内容 -->
+							<Border CornerRadius="8" Padding="12"
+                                    Background="{Binding IsUserMessage, Converter={StaticResource BoolToBubbleColorConverter}}">
+								<TextBlock Text="{Binding Content}" TextWrapping="Wrap" MaxWidth="400"/>
+							</Border>
+
+							<!-- 用户头像 -->
+							<Panel IsVisible="{Binding IsUserMessage}" VerticalAlignment="Top">
+								<Image Height="32" Width="32" Source="/Assets/person-head.ico"/>
+							</Panel>
+						</StackPanel>
+					</DataTemplate>
+				</ListBox.ItemTemplate>
+			</ListBox>
+		</Border>
+
+		<!-- 输入区域 -->
+		<StackPanel Grid.Row="3" Margin="0 0 0 15">
+			<TextBox x:Name="ai_ask" Height="120" AcceptsReturn="True"
+                     TextWrapping="Wrap" Watermark="给 AI 发送消息"
+                     Margin="0 0 0 15"/>
+
+			<Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+				<Button x:Name="ai_img" Grid.Column="0"
+                        Click="ImgPickClick" Content="图片选择"/>
+				<CheckBox x:Name="ai_tools" Grid.Column="1"
+                          Content="是否使用工具插件" Margin="10,0"/>
+				<Button x:Name="ai_send" Grid.Column="2"
+                        Click="SendClick" Content="发送" Width="100"
+                        Background="#4CAF50" Foreground="White"/>
+			</Grid>
+		</StackPanel>
+
+		<!-- 状态栏 -->
+		<Border Grid.Row="4" Background="Transparent">
+			<TextBlock x:Name="show_msg" Classes="status"
+                       Text="Where there is a will, there is a way!"
+                       ToolTip.Tip="Ready"/>
+		</Border>
+	</Grid>
+</UserControl>

@@ -17,7 +17,6 @@ namespace LLM.Interact.UI
             {
                 desktop.MainWindow = new MainWindow();
             }
-
             base.OnFrameworkInitializationCompleted();
         }
     }

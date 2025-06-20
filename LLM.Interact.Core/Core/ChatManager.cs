@@ -13,6 +13,7 @@ using System.Net.Http;
 using static System.Net.Mime.MediaTypeNames;
 using System.Threading;
 using System.Net.Http.Json;
+using System.Threading.Tasks;
 
 namespace LLM.Interact.Core.Core
 {
@@ -36,7 +37,7 @@ namespace LLM.Interact.Core.Core
             // _kernel.Plugins.Add(KernelPluginFactory.CreateFromType<WeatherPlugin>());
         }
 
-        public void AddService(AIConfig config)
+        public async Task AddService(AIConfig config)
         {
             if (!ChatWorkers.ContainsKey(config.AiType))
             {
@@ -59,28 +60,28 @@ namespace LLM.Interact.Core.Core
                 var chatCompletionService = _kernel.GetRequiredService<IChatCompletionService>(config.ServerKey);
                 ChatWorkers.TryAdd(config.AiType, chatCompletionService);
                 ChatModels.TryAdd(config.AiType, config);
-                LoadModel(config);
+                await LoadModel(config);
             }
             else
             {
                 ChatModels.TryGetValue(config.AiType, out var oldValue);
                 ChatModels.TryUpdate(config.AiType, config, oldValue);
-                LoadModel(config);
+                await LoadModel(config);
             }
         }
 
-        public void LoadModel(AIConfig config)
+        public async Task LoadModel(AIConfig config)
         {
             using var httplient = new HttpClient { BaseAddress = new Uri(config.Url) };
             var requestBody = new { model = config.ModelName };
-            using var response = httplient.PostAsJsonAsync("/api/chat", requestBody, CancellationToken.None).GetAwaiter().GetResult();
+            using var response = await httplient.PostAsJsonAsync("/api/chat", requestBody, CancellationToken.None);
         }
 
-        public void UnLoadModel(AIConfig config)
+        public async Task UnLoadModel(AIConfig config)
         {
             using var httplient = new HttpClient { BaseAddress = new Uri(config.Url) };
             var requestBody = new { model = config.ModelName, keep_alive = 0 };
-            using var response = httplient.PostAsJsonAsync("/api/chat", requestBody, CancellationToken.None).GetAwaiter().GetResult();
+            using var response = await httplient.PostAsJsonAsync("/api/chat", requestBody, CancellationToken.None);
         }
 
         public bool IsContainsWorker(AiType type)
@@ -88,13 +89,16 @@ namespace LLM.Interact.Core.Core
             return ChatWorkers.ContainsKey(type);
         }
 
-        public void RemoveHistory(AiType type)
+        public async Task RemoveHistory(AiType type)
         {
             ChatModels.TryGetValue(type, out var config);
-            UnLoadModel(config);
-            ChatHistories.Remove(type, out _);
-            var history = new ChatHistory();
-            ChatHistories.TryAdd(type, history);
+            if (config != null)
+            {
+                await UnLoadModel(config);
+                ChatHistories.Remove(type, out _);
+                var history = new ChatHistory();
+                ChatHistories.TryAdd(type, history);
+            }
         }
 
         public async IAsyncEnumerable<string> AskStreamingQuestionAsync(AiType type, string question, List<string>? imgs = null)

@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:local="clr-namespace:LLM.Interact.Components.Loading"
+			 x:Class="LLM.Interact.Components.Loading.LoadingOverlay"
+			 xmlns:spinner="using:LLM.Interact.Components.Spinner">
+	<UserControl.Styles>
+		<Style Selector="local|LoadingOverlay">
+			<Setter Property="Background" Value="Transparent"/>
+		</Style>
+	</UserControl.Styles>
+	<Grid Background="#80000000">
+		<Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+			<Border CornerRadius="8" Background="#FF333333" Padding="20">
+				<StackPanel Spacing="10" HorizontalAlignment="Center">
+					<!-- 旋转动画部分 -->
+					<Border Width="50" Height="50"
+                            BorderBrush="#FF4FC3F7"
+                            BorderThickness="3"
+                            CornerRadius="25"
+                            Padding="0">
+						<spinner:Spinner1 />
+					</Border>
+
+					<!-- 加载提示文本 -->
+					<TextBlock x:Name="LoadingText"
+                               Text="加载中..."
+                               FontSize="16"
+                               Foreground="White"
+                               HorizontalAlignment="Center"/>
+				</StackPanel>
+			</Border>
+		</Grid>
+	</Grid>
+</UserControl>
