@@ -1,4 +1,4 @@
-# LLM.Interact.Net（此项目已合并到Web项目中，后续不再更新）
+# LLM.Interact.Net（此项目已合并到Web项目中）
 
 该库目前仅可连接Ollama API，支持MCP协议、流式响应、聊天上下文、多模态。
 
