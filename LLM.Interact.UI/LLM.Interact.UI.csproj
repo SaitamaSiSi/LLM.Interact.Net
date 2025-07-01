@@ -25,6 +25,5 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\LLM.Interact.Components\LLM.Interact.Components.csproj" />
-		<ProjectReference Include="..\LLM.Interact.Core\LLM.Interact.Core.csproj" />
 	</ItemGroup>
 </Project>

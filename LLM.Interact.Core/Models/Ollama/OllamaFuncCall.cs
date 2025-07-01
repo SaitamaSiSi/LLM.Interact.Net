@@ -5,6 +5,6 @@ namespace LLM.Interact.Core.Models.Ollama
     public class OllamaFuncCall
     {
         public string Name { get; set; } = string.Empty;
-        public Dictionary<string, string> Arguments { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, object> Arguments { get; set; } = new Dictionary<string, object>();
     }
 }

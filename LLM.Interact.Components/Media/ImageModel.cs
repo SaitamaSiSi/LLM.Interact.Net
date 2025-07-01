@@ -1,18 +1,14 @@
-﻿using System;
+﻿using Avalonia.Media.Imaging;
 using System.ComponentModel;
-using Yitter.IdGenerator;
 
-namespace LLM.Interact.UI.DTO
+namespace LLM.Interact.Components.Media
 {
     public class ImageModel : INotifyPropertyChanged
     {
-        public long ID { get; set; } = YitIdHelper.NextId();
+        public long Id { get; set; }
         public string AbsolutePath { get; set; } = string.Empty;
-        public string Data { get; set; } = string.Empty;
-        public DateTime Timestamp { get; set; }
-
+        public Bitmap? Data { get; set; }
         public event PropertyChangedEventHandler? PropertyChanged;
-
         public void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

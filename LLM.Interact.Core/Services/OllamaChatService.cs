@@ -15,11 +15,13 @@ using LLM.Interact.Core.Core;
 using LLM.Interact.Core.Models.Ollama;
 using System.Text.Json.Serialization;
 using System.Text.Json;
+using Newtonsoft.Json.Linq;
 
 namespace LLM.Interact.Core.Services
 {
     public class OllamaChatService : IChatCompletionService
     {
+        public static bool IsTest = false;
         private readonly HttpClient _httpClient;
         private const AiType aiType = AiType.Ollama;
         private static Dictionary<string, SearchResult> DicSearchResult = new Dictionary<string, SearchResult>();
@@ -57,21 +59,52 @@ namespace LLM.Interact.Core.Services
                 }
                 if (OllamaChatTools.Find(m => m.Function.Name == functionName) == null)
                 {
-                    var funcTool = new OllamaChatTool();
-                    funcTool.Type = "function";
+                    var funcTool = new OllamaChatTool
+                    {
+                        Type = "function"
+                    };
                     funcTool.Function.Name = functionName;
                     funcTool.Function.Description = functionMetaData.Description;
                     funcTool.Function.Parameters.Type = "object";
                     foreach (var parameter in functionMetaData.Parameters)
                     {
-                        funcTool.Function.Parameters.Properties[parameter.Name] = new OllamaChatFuncProp
+                        if (parameter.Schema != null)
                         {
-                            Type = parameter.ParameterType?.ToString() ?? string.Empty,
-                            Description = parameter.Description
-                        };
-                        if (parameter.IsRequired)
-                        {
-                            funcTool.Function.Parameters.Required.Add(parameter.Name);
+                            JsonElement root = parameter.Schema.RootElement;
+                            var prop = new OllamaChatFuncProp();
+                            if (root.TryGetProperty("type", out JsonElement typeElement))
+                            {
+                                prop.Type = typeElement.ValueKind switch
+                                {
+                                    JsonValueKind.String => typeElement.GetString() ?? string.Empty,
+                                    JsonValueKind.Array => string.Join("|", typeElement.EnumerateArray().Select(e => e.GetString())),
+                                    _ => "unknown"
+                                };
+                            }
+
+                            // 2. 解析 description
+                            if (root.TryGetProperty("description", out JsonElement descElement) &&
+                                descElement.ValueKind == JsonValueKind.String)
+                            {
+                                prop.Description = descElement.GetString() ?? string.Empty;
+                            }
+
+                            // 3. 解析 enum
+                            if (root.TryGetProperty("enum", out JsonElement enumElement) &&
+                                enumElement.ValueKind == JsonValueKind.Array)
+                            {
+                                prop.Enum = new List<string>();
+                                foreach (JsonElement item in enumElement.EnumerateArray())
+                                {
+                                    prop.Enum.Add(item.ToString());
+                                }
+                            }
+
+                            funcTool.Function.Parameters.Properties[parameter.Name] = prop;
+                            if (parameter.IsRequired)
+                            {
+                                funcTool.Function.Parameters.Required.Add(parameter.Name);
+                            }
                         }
                     }
                     OllamaChatTools.Add(funcTool);
@@ -89,12 +122,12 @@ namespace LLM.Interact.Core.Services
                     if (function.Name.ToLower().Equals(search.FunctionName.ToLower()) && search.SearchFunctionNameSucc != true)
                     {
                         search.SearchFunctionNameSucc = true;
-                    }
-                    foreach (var par in search.FunctionParams)
-                    {
-                        if (function.Arguments.TryGetValue(par.Key, out var value) && par.Value == null)
+                        foreach (var par in search.FunctionParams)
                         {
-                            search.FunctionParams[par.Key] = value?.ToString().ToLower();
+                            if (function.Arguments.TryGetValue(par.Key, out var value) && par.Value == null)
+                            {
+                                search.FunctionParams[par.Key] = value?.ToString().ToLower();
+                            }
                         }
                     }
                 }
@@ -104,7 +137,39 @@ namespace LLM.Interact.Core.Services
             return searches.Any(x => x.SearchFunctionNameSucc);
         }
 
-        private OllamaChatParams HistoryToRequestBody(ChatHistory history, List<string>? images, bool isStream)
+        bool TryFindValues(JToken token, ref List<SearchResult> searches)
+        {
+            if (token.Type == JTokenType.Object)
+            {
+                foreach (var child in token.Children<JProperty>())
+                {
+                    foreach (var search in searches)
+                    {
+                        if (child.Value.ToString().ToLower().Equals(search.FunctionName.ToLower()) && search.SearchFunctionNameSucc != true)
+                            search.SearchFunctionNameSucc = true;
+                        foreach (var par in search.FunctionParams)
+                        {
+                            if (child.Name.ToLower().Equals(par.Key.ToLower()) && par.Value == null)
+                                search.FunctionParams[par.Key] = child.Value.ToString().ToLower();
+                        }
+                    }
+                    if (searches.Any(x => x.SearchFunctionNameSucc == false || x.FunctionParams.Any(x => x.Value == null)))
+                        TryFindValues(child.Value, ref searches);
+                }
+            }
+            else if (token.Type == JTokenType.Array)
+            {
+                foreach (var item in token.Children())
+                {
+                    if (searches.Any(x => x.SearchFunctionNameSucc == false || x.FunctionParams.Any(x => x.Value == null)))
+                        TryFindValues(item, ref searches);
+                }
+            }
+            // return searches.Any(x => x.SearchFunctionNameSucc && x.FunctionParams.All(x => x.Value != null));
+            return searches.Any(x => x.SearchFunctionNameSucc);
+        }
+
+        private OllamaChatParams HistoryToRequestBody(ChatHistory history, bool isStream)
         {
             OllamaChatParams res = new OllamaChatParams();
             ChatManager.ChatModels.TryGetValue(aiType, out var modelCofig);
@@ -115,17 +180,31 @@ namespace LLM.Interact.Core.Services
                 res.Messages = new List<OllamaChatMsg>();
                 foreach (var message in history)
                 {
-                    res.Messages.Add(new OllamaChatMsg
+                    List<string> imgs = new List<string>();
+                    OllamaChatMsg chatMsg = new OllamaChatMsg
                     {
                         Role = message.Role.Label,
                         Content = message.Content,
-                    });
+                    };
+
+                    foreach (var item in message.Items)
+                    {
+                        if (item is ImageContent imgContent && imgContent.Data != null)
+                        {
+                            imgs.Add(Convert.ToBase64String(imgContent.Data.Value.ToArray()));
+                        }
+                    }
+                    chatMsg.Images = imgs.Count > 0 ? imgs : null;
+                    res.Messages.Add(chatMsg);
                 }
-                res.Messages[^1].Images = images;
             }
             if (modelCofig.IsUseTools)
             {
                 res.Tools = OllamaChatTools;
+            }
+            if (res.Model.StartsWith("qwen3") || res.Model.StartsWith("deepseek-r1"))
+            {
+                res.Think = true;
             }
             return res;
         }
@@ -135,8 +214,7 @@ namespace LLM.Interact.Core.Services
             GetDicSearchResult(kernel!);
 
             // 构建Ollama API请求
-            List<string>? images = ChatManager.ChatImages.TryGetValue(aiType, out var img) ? img : null;
-            OllamaChatParams requestBody = HistoryToRequestBody(chatHistory, images, true);
+            OllamaChatParams requestBody = HistoryToRequestBody(chatHistory, true);
 
             HttpResponseMessage response = new HttpResponseMessage();
             string errMsg = string.Empty;
@@ -181,19 +259,22 @@ namespace LLM.Interact.Core.Services
                 {
                     continue;
                 }
+                var content = chunk.Message?.Content.ToString();
+                if (!string.IsNullOrEmpty(content))
+                {
+                    completeResponse.Append(chunk.Message?.Content.ToString());
+                    yield return new StreamingChatMessageContent(
+                        AuthorRole.Assistant,
+                        content: content);
+                }
                 if (chunk.Done)
                 {
                     break;
                 }
                 else
                 {
-                    completeResponse.Append(chunk.Message?.Content.ToString());
                     ollamaFuncs.AddRange(chunk.Message?.ToolCalls ?? new List<OllamaFunc>());
                 }
-                string msg = chunk.Message?.Content ?? "";
-                yield return new StreamingChatMessageContent(
-                    AuthorRole.Assistant,
-                    content: msg);
             }
 
             if (ollamaFuncs.Count > 0)
@@ -205,12 +286,19 @@ namespace LLM.Interact.Core.Services
                     if (firstFunc.KernelFunction != null)
                     {
                         var funcCallResult = await firstFunc.KernelFunction.InvokeAsync(kernel!, firstFunc.FunctionParams);
-                        chatHistory.AddMessage(AuthorRole.Tool, funcCallResult.ToString());
+                        if (IsTest)
+                        {
+                            yield return new StreamingChatMessageContent(
+                                AuthorRole.Assistant,
+                                funcCallResult.ToString());
+                            yield break;
+                        }
+                        chatHistory.AddMessage(AuthorRole.Assistant, funcCallResult.ToString() + "（这是最终结果，不需要再次执行此操作）");
                         await foreach (var result in GetStreamingChatMessageContentsAsync(chatHistory, kernel: kernel))
                         {
                             yield return new StreamingChatMessageContent(
-                        AuthorRole.Assistant,
-                        result.Content!);
+                                AuthorRole.Assistant,
+                                result.Content!);
                         }
                     }
                 }
@@ -218,7 +306,43 @@ namespace LLM.Interact.Core.Services
             else
             {
                 var finalResponse = completeResponse.ToString();
-                chatHistory.AddMessage(AuthorRole.Assistant, finalResponse);
+                //JToken? jToken = null;
+                //try
+                //{
+                //    jToken = JToken.Parse(finalResponse);
+                //    jToken = SystemHelper.ConvertStringToJson(jToken);
+                //}
+                //catch
+                //{
+
+                //}
+                //if (jToken != null)
+                //{
+                //    var searchs = DicSearchResult.Values.ToList();
+                //    if (TryFindValues(jToken, ref searchs))
+                //    {
+                //        var firstFunc = searchs.Where(x => x.SearchFunctionNameSucc).First();
+                //        var funcCallResult = await firstFunc.KernelFunction.InvokeAsync(kernel!, firstFunc.FunctionParams);
+                //        chatHistory.AddMessage(AuthorRole.Assistant, finalResponse);
+                //        chatHistory.AddMessage(AuthorRole.Tool, funcCallResult.ToString());
+                //        await foreach (var result in GetStreamingChatMessageContentsAsync(chatHistory, kernel: kernel))
+                //        {
+                //            yield return new StreamingChatMessageContent(
+                //        AuthorRole.Assistant,
+                //        result.Content!);
+                //        }
+                //    }
+                //}
+                if (string.IsNullOrEmpty(finalResponse))
+                {
+                    yield return new StreamingChatMessageContent(
+                                AuthorRole.Assistant,
+                                chatHistory.Last().Content?.Replace("（这是最终结果，不需要再次执行此操作）", ""));
+                }
+                else
+                {
+                    chatHistory.AddMessage(AuthorRole.Assistant, finalResponse);
+                }
             }
         }
 

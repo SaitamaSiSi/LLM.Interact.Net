@@ -7,7 +7,6 @@ using LLM.Interact.Core.Models;
 using LLM.Interact.UI.DTO;
 using System;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -17,7 +16,7 @@ using LLM.Interact.Core.Models.Ollama;
 using LLM.Interact.UI.Services;
 using LLM.Interact.Components.Confirm;
 using Avalonia;
-
+using LLM.Interact.Components.Media;
 namespace LLM.Interact.UI
 {
     public partial class HomePage : UserControl
@@ -32,7 +31,7 @@ Ollama 服务地址必须是正确的，并且服务端口必须开放。
         private AiType CurrentChatType = AiType.Ollama;
 
         public ObservableCollection<MessageModel> Messages { get; } = [];
-        public ObservableCollection<ImageModel> Images { get; } = [];
+        public ObservableCollection<ImageModel> Images { get; set; } = [];
 
         private Window? _hostWindow;
 
@@ -47,6 +46,7 @@ Ollama 服务地址必须是正确的，并且服务端口必须开放。
             ai_dis.IsEnabled = false;
             ai_send.IsEnabled = false;
             ai_img.IsEnabled = false;
+            check_img.IsEnabled = false;
             ai_tools.IsEnabled = false;
             ai_model.IsEnabled = false;
             ai_ask.IsEnabled = false;
@@ -79,6 +79,7 @@ Ollama 服务地址必须是正确的，并且服务端口必须开放。
             ai_dis.IsEnabled = !flag;
             ai_send.IsEnabled = !flag;
             ai_img.IsEnabled = !flag;
+            check_img.IsEnabled = !flag;
             ai_tools.IsEnabled = !flag;
         }
 
@@ -158,6 +159,7 @@ Ollama 服务地址必须是正确的，并且服务端口必须开放。
                             ai_dis.IsEnabled = true;
                             ai_send.IsEnabled = true;
                             ai_img.IsEnabled = true;
+                            check_img.IsEnabled = true;
                             ai_tools.IsEnabled = true;
                             ai_model.IsEnabled = true;
                             ai_ask.IsEnabled = true;
@@ -234,19 +236,20 @@ Ollama 服务地址必须是正确的，并且服务端口必须开放。
                     _ = Task.Factory.StartNew(async (obj) =>
                     {
                         Tuple<string>? tuple = (Tuple<string>?)obj;
-                        void action() { ai_send.IsEnabled = true; ai_img.IsEnabled = true; ai_tools.IsEnabled = true; Images.Clear(); ai_communication.ScrollIntoView(Messages.Last()); }
+                        void action() { ai_send.IsEnabled = true; ai_img.IsEnabled = true; check_img.IsEnabled = true; ai_tools.IsEnabled = true; Images.Clear(); ai_communication.ScrollIntoView(Messages.Last()); }
                         if (tuple != null)
                         {
                             void action2()
                             {
                                 ai_send.IsEnabled = false;
                                 ai_img.IsEnabled = false;
+                                check_img.IsEnabled = false;
                                 ai_tools.IsEnabled = false;
                                 ai_ask.Clear();
                                 ai_communication.ScrollIntoView(Messages.Last());
                             }
                             AddMessage(tuple.Item1, true, action2);
-                            await foreach (string ret in _chatManager.AskStreamingQuestionAsync(CurrentChatType, tuple.Item1, [.. Images.Select(model => model.Data)]))
+                            await foreach (string ret in _chatManager.AskStreamingQuestionAsync(CurrentChatType, tuple.Item1, [.. Images.Select(model => model.AbsolutePath)]))
                             {
                                 SendTipMsg(ret, null, 2);
                             }
@@ -276,11 +279,41 @@ Ollama 服务地址必须是正确的，并且服务端口必须开放。
 
             if (files.Count >= 1)
             {
-                ImageModel pickImg = new ImageModel();
-                pickImg.AbsolutePath = files[0].Path.LocalPath;
-                byte[] bytes = await File.ReadAllBytesAsync(pickImg.AbsolutePath);
-                pickImg.Data = Convert.ToBase64String(bytes); // 显式转换为 Base64
+                if (Images.Any(img => img.AbsolutePath == files[0].Path.LocalPath))
+                {
+                    SendTipMsg("已存在相同的图片，请选择其他图片");
+                    return;
+                }
+                ImageModel pickImg = new ImageModel
+                {
+                    Id = YitIdHelper.NextId(),
+                    AbsolutePath = files[0].Path.LocalPath,
+                    Data = new Avalonia.Media.Imaging.Bitmap(files[0].Path.LocalPath)
+                };
                 Images.Add(pickImg);
+            }
+        }
+
+        private async void ImgCheckClick(object? sender, RoutedEventArgs e)
+        {
+            // 创建参数
+            var @params = new ImageCarouselParams
+            {
+                Title = "选取图片预览",
+                Images = [.. Images]
+            };
+
+            // 显示弹窗并获取结果
+            var result = await ImageCarousel.Show(_hostWindow!, @params);
+
+            // 处理结果
+            if (result.Count > 0)
+            {
+                Images = [.. result];
+            }
+            else
+            {
+                Images.Clear();
             }
         }
 

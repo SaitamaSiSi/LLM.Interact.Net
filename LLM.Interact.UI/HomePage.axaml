@@ -157,12 +157,14 @@
                      TextWrapping="Wrap" Watermark="给 AI 发送消息"
                      Margin="0 0 0 15"/>
 
-			<Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+			<Grid ColumnDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Center">
 				<Button x:Name="ai_img" Grid.Column="0"
                         Click="ImgPickClick" Content="图片选择"/>
-				<CheckBox x:Name="ai_tools" Grid.Column="1"
+				<Button x:Name="check_img" Grid.Column="1"
+                        Click="ImgCheckClick" Content="查看选择图片" Margin="10 0 0 0"/>
+				<CheckBox x:Name="ai_tools" Grid.Column="2"
                           Content="是否使用工具插件" Margin="10,0"/>
-				<Button x:Name="ai_send" Grid.Column="2"
+				<Button x:Name="ai_send" Grid.Column="3"
                         Click="SendClick" Content="发送" Width="100"
                         Background="#4CAF50" Foreground="White"/>
 			</Grid>

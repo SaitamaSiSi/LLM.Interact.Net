@@ -1,8 +1,5 @@
-﻿using LLM.Interact.Core.Extensions;
-using LLM.Interact.Core.Models;
-using LLM.Interact.Core.Models.Ollama;
+﻿using LLM.Interact.Core.Models;
 using LLM.Interact.Core.Services;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -10,10 +7,12 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.Http;
-using static System.Net.Mime.MediaTypeNames;
 using System.Threading;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using System.IO;
+using LLM.Interact.Core.Plugins;
+using LLM.Interact.Core.Extensions;
 
 namespace LLM.Interact.Core.Core
 {
@@ -24,7 +23,6 @@ namespace LLM.Interact.Core.Core
 
         private readonly ConcurrentDictionary<AiType, ChatHistory> ChatHistories = new ConcurrentDictionary<AiType, ChatHistory>();
         private readonly ConcurrentDictionary<AiType, IChatCompletionService> ChatWorkers = new ConcurrentDictionary<AiType, IChatCompletionService>();
-        static public ConcurrentDictionary<AiType, List<string>?> ChatImages = new ConcurrentDictionary<AiType, List<string>?>();
         static public ConcurrentDictionary<AiType, AIConfig> ChatModels = new ConcurrentDictionary<AiType, AIConfig>();
 
         public ChatManager()
@@ -32,7 +30,7 @@ namespace LLM.Interact.Core.Core
             _kernelBuilder = Kernel.CreateBuilder();
             // 插入自定义插件
             _kernelBuilder.AddAmapPlugin();
-            // _kernelBuilder.Plugins.AddFromType<WeatherPlugin>();
+            _kernelBuilder.Plugins.AddFromType<TestPlugin>();
             _kernel = _kernelBuilder.Build();
             // _kernel.Plugins.Add(KernelPluginFactory.CreateFromType<WeatherPlugin>());
         }
@@ -53,6 +51,18 @@ namespace LLM.Interact.Core.Core
                 {
                     // 创建聊天历史
                     var history = new ChatHistory();
+                    //// 获取刚才定义的插件函数的元数据，用于后续创建prompt
+                    //var plugins = _kernel.Plugins.GetFunctionsMetadata();
+                    ////生成函数调用提示词，引导模型根据用户请求去调用函数
+                    //var functionsPrompt = SystemHelper.CreateFunctionsMetaObject(plugins);
+                    ////创建系统提示词，插入刚才生成的提示词
+                    //var prompt = @$"
+                    //  You have access to the following functions. Use them if required:
+                    //  {functionsPrompt}
+                    //  If function calls are used, ensure the output is in JSON format; otherwise, output should be in text format.
+                    //  ";
+                    ////添加系统提示词
+                    //history.AddSystemMessage(prompt);
                     ChatHistories.TryAdd(config.AiType, history);
                 }
 
@@ -70,18 +80,20 @@ namespace LLM.Interact.Core.Core
             }
         }
 
-        public async Task LoadModel(AIConfig config)
+        public async Task<string> LoadModel(AIConfig config)
         {
             using var httplient = new HttpClient { BaseAddress = new Uri(config.Url) };
             var requestBody = new { model = config.ModelName };
             using var response = await httplient.PostAsJsonAsync("/api/chat", requestBody, CancellationToken.None);
+            return response.ReasonPhrase;
         }
 
-        public async Task UnLoadModel(AIConfig config)
+        public async Task<string> UnLoadModel(AIConfig config)
         {
             using var httplient = new HttpClient { BaseAddress = new Uri(config.Url) };
             var requestBody = new { model = config.ModelName, keep_alive = 0 };
             using var response = await httplient.PostAsJsonAsync("/api/chat", requestBody, CancellationToken.None);
+            return response.ReasonPhrase;
         }
 
         public bool IsContainsWorker(AiType type)
@@ -101,21 +113,42 @@ namespace LLM.Interact.Core.Core
             }
         }
 
+        public async IAsyncEnumerable<string> WebTestAskAsync(AiType type, string question)
+        {
+            OllamaChatService.IsTest = true;
+            var history = new ChatHistory();
+            history.AddUserMessage(question);
+            await foreach (var result in ChatWorkers[type].GetStreamingChatMessageContentsAsync(
+                history,
+                executionSettings: null,
+                kernel: _kernel))
+            {
+                yield return result.Content!;
+            }
+        }
+
         public async IAsyncEnumerable<string> AskStreamingQuestionAsync(AiType type, string question, List<string>? imgs = null)
         {
             if (ChatHistories.ContainsKey(type) && ChatWorkers.ContainsKey(type))
             {
-                if (ChatImages.ContainsKey(type))
-                {
-                    ChatImages[type] = imgs;
-                }
-                else
-                {
-                    ChatImages.TryAdd(type, imgs);
-                }
                 var history = ChatHistories[type];
                 //添加用户的提问
-                history.AddUserMessage(question);
+                var chatCollection = new ChatMessageContentItemCollection
+                {
+                    // 添加文本内容
+                    new TextContent(question)
+                };
+                if (imgs != null)
+                {
+                    // 添加图片内容
+                    foreach (var img in imgs)
+                    {
+                        ImageMimeType.MimeTypes.TryGetValue(Path.GetExtension(img).ToLowerInvariant(), out string mime);
+                        byte[] bytes = File.ReadAllBytes(img);
+                        chatCollection.Add(new ImageContent(bytes, mime));
+                    }
+                }
+                history.AddUserMessage(chatCollection);
                 // 流式执行kernel
                 await foreach (var result in ChatWorkers[type].GetStreamingChatMessageContentsAsync(
                     history,

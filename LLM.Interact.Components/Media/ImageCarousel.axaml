@@ -1,0 +1,189 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Width="800"
+        Height="600"
+        Title="图片预览"
+		ShowInTaskbar="False"
+		ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+		SystemDecorations="None"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Microsoft YaHei"
+		xmlns:vm="using:LLM.Interact.Components.Media"
+        x:Class="LLM.Interact.Components.Media.ImageCarousel">
+
+	<Window.Styles>
+		<Style Selector="Button">
+			<Setter Property="Background" Value="#F0F0F0"/>
+			<Setter Property="BorderBrush" Value="#CCCCCC"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="Foreground" Value="#333333"/>
+			<Setter Property="FontSize" Value="14"/>
+			<Setter Property="Padding" Value="10,5"/>
+			<Setter Property="Margin" Value="5"/>
+			<Setter Property="CornerRadius" Value="3"/>
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
+
+		<Style Selector="Button:pointerover">
+			<Setter Property="Background" Value="#E0E0E0"/>
+		</Style>
+
+		<Style Selector="Button:pressed">
+			<Setter Property="Background" Value="#D0D0D0"/>
+		</Style>
+
+		<Style Selector="Button.delete-btn">
+			<Setter Property="Background" Value="#FF5252"/>
+			<Setter Property="Foreground" Value="White"/>
+			<Setter Property="BorderThickness" Value="0"/>
+		</Style>
+
+		<Style Selector="Button.delete-btn:pointerover">
+			<Setter Property="Background" Value="#E53935"/>
+		</Style>
+
+		<Style Selector="TextBlock.info-label">
+			<Setter Property="FontSize" Value="14"/>
+			<Setter Property="Foreground" Value="#666666"/>
+			<Setter Property="Margin" Value="0,0,5,0"/>
+		</Style>
+
+		<Style Selector="TextBlock.info-value">
+			<Setter Property="FontSize" Value="14"/>
+			<Setter Property="Foreground" Value="#333333"/>
+			<Setter Property="Margin" Value="0,0,15,0"/>
+		</Style>
+	</Window.Styles>
+
+	<Grid Background="#FFFFFF">
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="*"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
+		</Grid.RowDefinitions>
+
+		<!-- 标题栏 -->
+		<Border Grid.Row="0" Background="#F5F5F5" Padding="15,10">
+			<Grid>
+				<TextBlock x:Name="title"
+                           FontSize="18"
+                           Foreground="#333333"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+
+				<Button Content="✕"
+                        HorizontalAlignment="Right"
+                        Click="CloseDialog"
+                        Width="30"
+                        Height="30"
+                        FontSize="16"
+                        ToolTip.Tip="关闭"/>
+			</Grid>
+		</Border>
+
+		<!-- 轮播图区域 -->
+		<Grid Grid.Row="1" Margin="15">
+			<Carousel x:Name="slides"
+                      SelectionChanged="OnSelectedIndexChanged">
+				<Carousel.PageTransition>
+					<PageSlide Duration="0:00:00.3" Orientation="Horizontal" />
+				</Carousel.PageTransition>
+
+				<Carousel.ItemTemplate>
+					<DataTemplate  x:DataType="vm:ImageModel">
+						<Border BorderBrush="#E0E0E0" BorderThickness="1"
+                                Background="#F8F8F8" CornerRadius="4">
+							<Image Source="{Binding Data}"
+                                   Stretch="Uniform"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   MaxWidth="700"
+                                   MaxHeight="400"/>
+						</Border>
+					</DataTemplate>
+				</Carousel.ItemTemplate>
+			</Carousel>
+
+			<!-- 导航按钮 -->
+			<Button x:Name="btnPrev"
+                    Content="❮"
+                    Click="Previous"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Width="40"
+                    Height="40"
+                    FontSize="20"
+					/>
+
+			<Button x:Name="btnNext"
+                    Content="❯"
+                    Click="Next"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Width="40"
+                    Height="40"
+                    FontSize="20"
+					/>
+		</Grid>
+
+		<!-- 图片信息区域 -->
+		<Grid Grid.Row="2" Margin="15,0,15,10">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="Auto"/>
+			</Grid.ColumnDefinitions>
+
+			<TextBlock Text="文件名:" Classes="info-label" Grid.Column="0"/>
+			<TextBlock x:Name="fileName" Classes="info-value" Grid.Column="1" TextTrimming="CharacterEllipsis"/>
+
+			<TextBlock Text="类型:" Classes="info-label" Grid.Column="2"/>
+			<TextBlock x:Name="fileType" Classes="info-value" Grid.Column="3"/>
+
+			<TextBlock Text="大小:" Classes="info-label" Grid.Column="4"/>
+			<TextBlock x:Name="fileSize" Classes="info-value" Grid.Column="5"/>
+
+			<TextBlock Text="尺寸:" Classes="info-label" Grid.Column="6"/>
+			<TextBlock x:Name="dimensions" Classes="info-value" Grid.Column="7"/>
+
+			<Button Grid.Column="8"
+                    Classes="delete-btn"
+                    Content="删除当前"
+                    Click="DeleteImage"
+                    MinWidth="80"
+                    ToolTip.Tip="删除当前图片"/>
+		</Grid>
+
+		<!-- 底部按钮区域 -->
+		<Border Grid.Row="3" Background="#F5F5F5" Padding="15,10">
+			<StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+				<Button Classes="delete-btn"
+                        Content="全部删除"
+                        Click="DeleteAllImages"
+                        MinWidth="80"
+                        ToolTip.Tip="删除所有图片"/>
+			</StackPanel>
+		</Border>
+
+		<!-- 无图片提示 -->
+		<TextBlock Grid.Row="1"
+                   Text="没有图片可显示"
+                   Foreground="#999999"
+                   FontSize="16"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsVisible="False"/>
+	</Grid>
+</Window>
